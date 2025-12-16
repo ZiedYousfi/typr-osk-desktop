@@ -1,0 +1,7 @@
+.DS_Store
+*.dysm
+.o
+*.log
+*.out
+*.txt
+*.pyc
