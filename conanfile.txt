@@ -1,5 +1,5 @@
 [requires]
-qt/6.7.2
+qt/6.8.3
 
 [generators]
 MesonToolchain
