@@ -1,0 +1,9 @@
+[requires]
+qt/6.7.2
+
+[generators]
+MesonToolchain
+MesonDeps
+
+[layout]
+cmake_layout
