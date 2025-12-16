@@ -1,2 +1,2 @@
 CompileFlags:
-  CompilationDatabase: build/debug/compile_commands.json
+  CompilationDatabase: build/debug
