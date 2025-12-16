@@ -21,28 +21,40 @@ protected:
     qDebug() << "[RightClickableToolButton] Mouse press event, button:"
              << e->button();
 
-    if (e->button() == Qt::RightButton) { // Detect right mouse button
-      qDebug() << "[RightClickableToolButton] Right-click detected";
-
-      if (auto a = defaultAction(); a && isEnabled()) {
-        qDebug() << "[RightClickableToolButton] Triggering default action:"
-                 << a->text();
-        a->trigger();
-        e->accept();
-        return;
-      }
-
-      if (isEnabled()) {
-        qDebug() << "[RightClickableToolButton] No default action, performing "
-                    "normal click";
-        click();
-        e->accept();
-        return;
-      }
+    if (e->button() == Qt::RightButton) {
+      qDebug() << "[RightClickableToolButton] Right-click detected, treating "
+                  "as left-click";
+      // Create a new event with left button instead of right button
+      QMouseEvent leftClickEvent(e->type(), e->position(), e->globalPosition(),
+                                 Qt::LeftButton, Qt::LeftButton,
+                                 e->modifiers());
+      QToolButton::mousePressEvent(&leftClickEvent);
+      e->accept();
+      return;
     }
 
     // Default handling for left-clicks and other buttons
     QToolButton::mousePressEvent(e);
+  }
+
+  void mouseReleaseEvent(QMouseEvent *e) override {
+    qDebug() << "[RightClickableToolButton] Mouse release event, button:"
+             << e->button();
+
+    if (e->button() == Qt::RightButton) {
+      qDebug() << "[RightClickableToolButton] Right-click release detected, "
+                  "treating as left-click release";
+      // Create a new event with left button instead of right button
+      QMouseEvent leftClickEvent(e->type(), e->position(), e->globalPosition(),
+                                 Qt::LeftButton, Qt::LeftButton,
+                                 e->modifiers());
+      QToolButton::mouseReleaseEvent(&leftClickEvent);
+      e->accept();
+      return;
+    }
+
+    // Default handling for left-clicks and other buttons
+    QToolButton::mouseReleaseEvent(e);
   }
 };
 
@@ -55,17 +67,8 @@ int main(int argc, char **argv) {
   window.setWindowTitle("Qt + Meson + Conan Example");
   window.resize(360, 150);
 
-  // Create a vertical layout for the window
-  auto *layout = new QVBoxLayout(&window);
-
-  // Create and add label
-  auto *label = new QLabel("Hello Qt + Meson + Conan!");
-  label->setAlignment(Qt::AlignCenter);
-  layout->addWidget(label);
-
   // Create action for the button
   auto *action = new QAction("Run", &window);
-  action->setCheckable(true); // Enable toggle state (checked/unchecked)
   qDebug() << "[main] Action created:" << action->text();
 
   // Connect action to log when triggered
@@ -77,7 +80,6 @@ int main(int argc, char **argv) {
   auto *btn = new RightClickableToolButton(&window);
   btn->setDefaultAction(action); // Bind the button to the action
   btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-  layout->addWidget(btn);
   qDebug() << "[main] Button added to layout";
 
   // Show the window
