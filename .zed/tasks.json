@@ -1,0 +1,16 @@
+[
+  {
+    "label": "setup",
+    "command": "meson",
+    "args": ["setup", "build/debug", "--reconfigure"]
+  },
+  {
+    "label": "build",
+    "command": "ninja",
+    "args": ["-C", "build/debug"]
+  },
+  {
+    "label": "run",
+    "command": "./build/debug/typr-osk-desktop"
+  }
+]

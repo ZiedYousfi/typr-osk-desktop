@@ -3,7 +3,6 @@ qt/6.8.3
 
 [generators]
 MesonToolchain
-MesonDeps
 
 [layout]
 cmake_layout
