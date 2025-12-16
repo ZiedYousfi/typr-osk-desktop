@@ -12,5 +12,9 @@
   {
     "label": "run",
     "command": "./build/debug/typr-osk-desktop"
+  },
+  {
+    "label": "build and run",
+    "command": "ninja -C build/debug && ./build/debug/typr-osk-desktop"
   }
 ]
