@@ -1,21 +1,18 @@
 #include <QAction> // Encapsulates an action that can be triggered by UI elements
 #include <QApplication> // Core application class for Qt GUI programs
 #include <QDebug>       // Provides debug output functionality
-#include <QLabel>       // Simple widget to display text or images
-#include <QVBoxLayout>  // Vertical box layout for arranging widgets
+#include <QHBoxLayout>  // Horizontal box layout for arranging widgets
 #include <QWidget>      // Base class for all UI objects
-
-#include <memory>
 
 #include "input/input.hpp"
 #include "ui/ui.hpp"
 
-#define DEFAULT_WINDOW_WIDTH 360
-#define DEFAULT_WINDOW_HEIGHT 150
-
 int main(int argc, char **argv) {
   QApplication app(argc, argv);
   qDebug() << "[main] Application started";
+
+  // Install event filter to block activation events at the Qt level
+  Ui::installNoActivationFilter(&app);
 
   input::InputBackend keyboard;
 
@@ -25,35 +22,64 @@ int main(int argc, char **argv) {
 
   // Create main window widget
   QWidget window;
-  window.setWindowTitle("Qt + Meson + Conan Example");
-  window.resize(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
-  // Lock the window to prevent resizing
-  window.setFixedSize(window.size());
+  window.setWindowTitle("Typr OSK");
 
   window.setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint |
                         Qt::WindowDoesNotAcceptFocus | Qt::Tool);
 
-  window.setAttribute(Qt::WA_ShowWithoutActivating, true);
+  window.setAttribute(Qt::WA_ShowWithoutActivating);
+  window.setAttribute(Qt::WA_TranslucentBackground);
 
-  Ui::makeNonActivating(&window);
+  // Create horizontal layout
+  auto *layout = new QHBoxLayout(&window);
+  layout->setContentsMargins(4, 4, 4, 4);
+  layout->setSpacing(4);
 
-  // Create action for the button
-  auto *action = new QAction("Run", &window);
-  qDebug() << "[main] Action created:" << action->text();
+  // Create action for the run button
+  auto *runAction = new QAction("Run", &window);
+  qDebug() << "[main] Run action created:" << runAction->text();
 
-  QObject::connect(action, &QAction::triggered, [&]() {
-    qDebug() << "[main] Action triggered";
+  QObject::connect(runAction, &QAction::triggered, [&]() {
+    qDebug() << "[main] Run action triggered";
     keyboard.tap(input::Key::I);
   });
 
-  // Create the custom button and add to layout
-  auto btn = std::make_unique<Ui::RightClickableToolButton>(&window);
-  btn->setDefaultAction(action); // Bind the button to the action
-  btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-  qDebug() << "[main] Button added to layout";
+  // Create the run button and add to layout
+  auto *runBtn = new Ui::RightClickableToolButton(&window);
+  runBtn->setDefaultAction(runAction);
+  runBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+  layout->addWidget(runBtn);
+  qDebug() << "[main] Run button added to layout";
 
-  // Show the window
+  // Create action for the quit button
+  auto *quitAction = new QAction("Quit", &window);
+  qDebug() << "[main] Quit action created:" << quitAction->text();
+
+  QObject::connect(quitAction, &QAction::triggered, [&]() {
+    qDebug() << "[main] Quit action triggered";
+    app.quit();
+  });
+
+  // Create the quit button and add to layout
+  auto *quitBtn = new Ui::RightClickableToolButton(&window);
+  quitBtn->setDefaultAction(quitAction);
+  quitBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+  layout->addWidget(quitBtn);
+  qDebug() << "[main] Quit button added to layout";
+
+  // Resize window to fit contents
+  window.adjustSize();
+  window.setFixedSize(window.sizeHint());
+
+  // Show the window first - the NSWindow must exist before we can modify it
   window.show();
+
+  // Process events to ensure the native window is fully created
+  app.processEvents();
+
+  // Apply non-activating behavior (must be done after window is shown)
+  Ui::makeNonActivating(&window);
+
   qDebug() << "[main] Window shown, entering event loop";
 
   return app.exec();

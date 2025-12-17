@@ -27,8 +27,9 @@ if host_machine.system() == 'darwin'
   carbon_dep = dependency('appleframeworks', modules: ['Carbon'])
   appservices_dep = dependency('appleframeworks', modules: ['ApplicationServices'])
   foundation_dep = dependency('appleframeworks', modules: ['Foundation'])
+  cocoa_dep = dependency('appleframeworks', modules: ['Cocoa'])
 
-  deps += [coregraphics_dep, carbon_dep, appservices_dep, foundation_dep]
+  deps += [coregraphics_dep, carbon_dep, appservices_dep, foundation_dep, cocoa_dep]
 endif
 
 executable(
