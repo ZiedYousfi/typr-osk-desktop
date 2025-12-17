@@ -2,56 +2,11 @@
 #include <QApplication> // Core application class for Qt GUI programs
 #include <QDebug>       // Provides debug output functionality
 #include <QLabel>       // Simple widget to display text or images
-#include <QMouseEvent> // Provides mouse event information (e.g., button clicks)
-#include <QToolButton> // Button widget that can display an icon and text
-#include <QVBoxLayout> // Vertical box layout for arranging widgets
-#include <QWidget>     // Base class for all UI objects
+#include <QVBoxLayout>  // Vertical box layout for arranging widgets
+#include <QWidget>      // Base class for all UI objects
 
 #include "input/input.hpp"
-
-// Custom button that handles right-clicks by triggering the default action
-class RightClickableToolButton : public QToolButton {
-public:
-  explicit RightClickableToolButton(QWidget *parent = nullptr)
-      : QToolButton(parent) {
-    setContextMenuPolicy(Qt::NoContextMenu); // Disable default context menu
-    setFocusPolicy(Qt::NoFocus); // Disable focus
-    qDebug() << "[RightClickableToolButton] Button created";
-  }
-
-protected:
-  void mousePressEvent(QMouseEvent *e) override {
-
-    if (e->button() == Qt::RightButton) {
-      // Create a new event with left button instead of right button
-      QMouseEvent leftClickEvent(e->type(), e->position(), e->globalPosition(),
-                                 Qt::LeftButton, Qt::LeftButton,
-                                 e->modifiers());
-      QToolButton::mousePressEvent(&leftClickEvent);
-      e->accept();
-      return;
-    }
-
-    // Default handling for left-clicks and other buttons
-    QToolButton::mousePressEvent(e);
-  }
-
-  void mouseReleaseEvent(QMouseEvent *e) override {
-
-    if (e->button() == Qt::RightButton) {
-      // Create a new event with left button instead of right button
-      QMouseEvent leftClickEvent(e->type(), e->position(), e->globalPosition(),
-                                 Qt::LeftButton, Qt::LeftButton,
-                                 e->modifiers());
-      QToolButton::mouseReleaseEvent(&leftClickEvent);
-      e->accept();
-      return;
-    }
-
-    // Default handling for left-clicks and other buttons
-    QToolButton::mouseReleaseEvent(e);
-  }
-};
+#include "ui/ui.hpp"
 
 int main(int argc, char **argv) {
   QApplication app(argc, argv);
@@ -69,9 +24,12 @@ int main(int argc, char **argv) {
   window.resize(360, 150);
   // Lock the window to prevent resizing
   window.setFixedSize(window.size());
+
+  // Make the window only an overlay and not take focus
+  window.setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint |
+                        Qt::WindowDoesNotAcceptFocus);
   
-  // Make the window only an overlay and not take focus 
-  window.setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
+  Ui::makeNonActivating(&window);
 
   // Create action for the button
   auto *action = new QAction("Run", &window);
@@ -83,7 +41,7 @@ int main(int argc, char **argv) {
   });
 
   // Create the custom button and add to layout
-  auto *btn = new RightClickableToolButton(&window);
+  auto *btn = new Ui::RightClickableToolButton(&window);
   btn->setDefaultAction(action); // Bind the button to the action
   btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
   qDebug() << "[main] Button added to layout";

@@ -20,6 +20,7 @@ deps = [qt6_dep]
 
 if host_machine.system() == 'darwin'
   sources += 'src/input/input_macos.mm'
+  sources += 'src/ui/ui_macos.mm'
 
   # macOS frameworks for input injection
   coregraphics_dep = dependency('appleframeworks', modules: ['CoreGraphics'])
