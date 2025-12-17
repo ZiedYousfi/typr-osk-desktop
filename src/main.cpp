@@ -18,12 +18,8 @@ public:
 
 protected:
   void mousePressEvent(QMouseEvent *e) override {
-    qDebug() << "[RightClickableToolButton] Mouse press event, button:"
-             << e->button();
 
     if (e->button() == Qt::RightButton) {
-      qDebug() << "[RightClickableToolButton] Right-click detected, treating "
-                  "as left-click";
       // Create a new event with left button instead of right button
       QMouseEvent leftClickEvent(e->type(), e->position(), e->globalPosition(),
                                  Qt::LeftButton, Qt::LeftButton,
@@ -38,12 +34,8 @@ protected:
   }
 
   void mouseReleaseEvent(QMouseEvent *e) override {
-    qDebug() << "[RightClickableToolButton] Mouse release event, button:"
-             << e->button();
 
     if (e->button() == Qt::RightButton) {
-      qDebug() << "[RightClickableToolButton] Right-click release detected, "
-                  "treating as left-click release";
       // Create a new event with left button instead of right button
       QMouseEvent leftClickEvent(e->type(), e->position(), e->globalPosition(),
                                  Qt::LeftButton, Qt::LeftButton,
@@ -66,15 +58,12 @@ int main(int argc, char **argv) {
   QWidget window;
   window.setWindowTitle("Qt + Meson + Conan Example");
   window.resize(360, 150);
+  // Lock the window to prevent resizing
+  window.setFixedSize(window.size());
 
   // Create action for the button
   auto *action = new QAction("Run", &window);
   qDebug() << "[main] Action created:" << action->text();
-
-  // Connect action to log when triggered
-  QObject::connect(action, &QAction::triggered, &app, [=](bool checked) {
-    qDebug() << "[main] Action triggered! Checked state:" << checked;
-  });
 
   // Create the custom button and add to layout
   auto *btn = new RightClickableToolButton(&window);
