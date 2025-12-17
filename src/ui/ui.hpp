@@ -47,34 +47,34 @@ public:
   }
 
 protected:
-  void mousePressEvent(QMouseEvent *e) override {
-    if (e->button() == Qt::RightButton) {
+  void mousePressEvent(QMouseEvent *event) override {
+    if (event->button() == Qt::RightButton) {
       // Create a new event with left button instead of right button
-      QMouseEvent leftClickEvent(e->type(), e->position(), e->globalPosition(),
-                                 Qt::LeftButton, Qt::LeftButton,
-                                 e->modifiers());
+      QMouseEvent leftClickEvent(event->type(), event->position(),
+                                 event->globalPosition(), Qt::LeftButton,
+                                 Qt::LeftButton, event->modifiers());
       QToolButton::mousePressEvent(&leftClickEvent);
-      e->accept();
+      event->accept();
       return;
     }
 
     // Default handling for left-clicks and other buttons
-    QToolButton::mousePressEvent(e);
+    QToolButton::mousePressEvent(event);
   }
 
-  void mouseReleaseEvent(QMouseEvent *e) override {
-    if (e->button() == Qt::RightButton) {
+  void mouseReleaseEvent(QMouseEvent *event) override {
+    if (event->button() == Qt::RightButton) {
       // Create a new event with left button instead of right button
-      QMouseEvent leftClickEvent(e->type(), e->position(), e->globalPosition(),
-                                 Qt::LeftButton, Qt::LeftButton,
-                                 e->modifiers());
+      QMouseEvent leftClickEvent(event->type(), event->position(),
+                                 event->globalPosition(), Qt::LeftButton,
+                                 Qt::LeftButton, event->modifiers());
       QToolButton::mouseReleaseEvent(&leftClickEvent);
-      e->accept();
+      event->accept();
       return;
     }
 
     // Default handling for left-clicks and other buttons
-    QToolButton::mouseReleaseEvent(e);
+    QToolButton::mouseReleaseEvent(event);
   }
 
   // Prevent focus
@@ -91,13 +91,13 @@ void makeNonActivating(QWidget *window);
 
 // Install the global event filter on the application
 inline void installNoActivationFilter(QApplication *app) {
-  static Widget::NoActivationEventFilter *filter = nullptr;
-  if (filter == nullptr) {
-    filter = new Widget::NoActivationEventFilter(app);
-    app->installEventFilter(filter);
+  static Widget::NoActivationEventFilter filter(app);
+  static bool installed = false;
+  if (!installed) {
+    app->installEventFilter(&filter);
     qDebug() << "[Ui] Installed NoActivationEventFilter";
+    installed = true;
   }
 }
-
 
 } // namespace Ui

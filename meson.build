@@ -10,10 +10,20 @@ project(
 
 qt6_dep = dependency('qt6', modules: ['Core', 'Gui', 'Widgets'])
 
+# Header files
+headers = [
+  'src/core/input.hpp',
+  'src/input/input.hpp',
+  'src/ui/ui.hpp',
+]
+
 # Source files
 sources = [
   'src/main.cpp',
 ]
+
+# Include directories
+inc_dirs = include_directories('src')
 
 # Platform-specific sources and dependencies
 deps = [qt6_dep]
@@ -34,7 +44,8 @@ endif
 
 executable(
   'typr-osk-desktop',
-  sources,
+  sources + headers,
   dependencies: deps,
+  include_directories: inc_dirs,
   install: false,
 )

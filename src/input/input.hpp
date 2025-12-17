@@ -5,7 +5,7 @@
 
 namespace input {
 
-enum class Key : uint16_t {
+enum class Key : uint8_t {
   Unknown = 0,
   A,
   B,
@@ -68,70 +68,70 @@ enum class Key : uint16_t {
 
 inline std::string keyToString(Key key) {
   switch (key) {
-    case Key::Num0:
-      return "Num0";
-    case Key::Num1:
-      return "Num1";
-    case Key::Num2:
-      return "Num2";
-    case Key::Num3:
-      return "Num3";
-    case Key::Num4:
-      return "Num4";
-    case Key::Num5:
-      return "Num5";
-    case Key::Num6:
-      return "Num6";
-    case Key::Num7:
-      return "Num7";
-    case Key::Num8:
-      return "Num8";
-    case Key::Num9:
-      return "Num9";
-    case Key::Enter:
-      return "Enter";
-    case Key::Escape:
-      return "Escape";
-    case Key::Backspace:
-      return "Backspace";
-    case Key::Tab:
-      return "Tab";
-    case Key::Space:
-      return "Space";
-    case Key::Left:
-      return "Left";
-    case Key::Right:
-      return "Right";
-    case Key::Up:
-      return "Up";
-    case Key::Down:
-      return "Down";
-    case Key::F1:
-      return "F1";
-    case Key::F2:
-      return "F2";
-    case Key::F3:
-      return "F3";
-    case Key::F4:
-      return "F4";
-    case Key::F5:
-      return "F5";
-    case Key::F6:
-      return "F6";
-    case Key::F7:
-      return "F7";
-    case Key::F8:
-      return "F8";
-    case Key::F9:
-      return "F9";
-    case Key::F10:
-      return "F10";
-    case Key::F11:
-      return "F11";
-    case Key::F12:
-      return "F12";
-    default:
-      return "Unknown";
+  case Key::Num0:
+    return "Num0";
+  case Key::Num1:
+    return "Num1";
+  case Key::Num2:
+    return "Num2";
+  case Key::Num3:
+    return "Num3";
+  case Key::Num4:
+    return "Num4";
+  case Key::Num5:
+    return "Num5";
+  case Key::Num6:
+    return "Num6";
+  case Key::Num7:
+    return "Num7";
+  case Key::Num8:
+    return "Num8";
+  case Key::Num9:
+    return "Num9";
+  case Key::Enter:
+    return "Enter";
+  case Key::Escape:
+    return "Escape";
+  case Key::Backspace:
+    return "Backspace";
+  case Key::Tab:
+    return "Tab";
+  case Key::Space:
+    return "Space";
+  case Key::Left:
+    return "Left";
+  case Key::Right:
+    return "Right";
+  case Key::Up:
+    return "Up";
+  case Key::Down:
+    return "Down";
+  case Key::F1:
+    return "F1";
+  case Key::F2:
+    return "F2";
+  case Key::F3:
+    return "F3";
+  case Key::F4:
+    return "F4";
+  case Key::F5:
+    return "F5";
+  case Key::F6:
+    return "F6";
+  case Key::F7:
+    return "F7";
+  case Key::F8:
+    return "F8";
+  case Key::F9:
+    return "F9";
+  case Key::F10:
+    return "F10";
+  case Key::F11:
+    return "F11";
+  case Key::F12:
+    return "F12";
+  default:
+    return "Unknown";
   }
 };
 
@@ -144,7 +144,8 @@ enum Mod : uint8_t {
 };
 
 inline Mod operator|(Mod left, Mod right) {
-  return static_cast<Mod>(static_cast<uint8_t>(left) | static_cast<uint8_t>(right));
+  return static_cast<Mod>(static_cast<uint8_t>(left) |
+                          static_cast<uint8_t>(right));
 }
 
 inline Mod &operator|=(Mod &left, Mod right) {
