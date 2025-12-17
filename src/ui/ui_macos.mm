@@ -1,5 +1,4 @@
-// ui_macos.mm
-// macOS-specific UI utilities (Objective-C++)
+// AI made because its so hard to write + don't know how to do it + cringe + ratio apple
 
 #include "ui.hpp"
 
