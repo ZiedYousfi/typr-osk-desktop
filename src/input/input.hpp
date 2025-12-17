@@ -1,7 +1,6 @@
 // input.hpp
 #pragma once
 #include <cstdint>
-#include <memory>
 #include <string>
 
 namespace input {
@@ -15,6 +14,35 @@ enum class Key : uint16_t {
   E,
   F,
   G,
+  H,
+  I,
+  J,
+  K,
+  L,
+  M,
+  N,
+  O,
+  P,
+  Q,
+  R,
+  S,
+  T,
+  U,
+  V,
+  W,
+  X,
+  Y,
+  Z,
+  Num0,
+  Num1,
+  Num2,
+  Num3,
+  Num4,
+  Num5,
+  Num6,
+  Num7,
+  Num8,
+  Num9,
   Enter,
   Escape,
   Backspace,
@@ -43,12 +71,20 @@ enum Mod : uint8_t {
   Mod_Shift = 1 << 0,
   Mod_Ctrl = 1 << 1,
   Mod_Alt = 1 << 2,
-  Mod_Super = 1 << 3, // Cmd on macOS, Win key on Windows, Super key on Linux
-                      // (ur welcome :))
+  Mod_Super = 1 << 3, // Cmd on macOS, Win key on Windows, Super on Linux
 };
 
 inline Mod operator|(Mod a, Mod b) {
   return static_cast<Mod>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+}
+
+inline Mod &operator|=(Mod &a, Mod b) {
+  a = a | b;
+  return a;
+}
+
+inline bool operator&(Mod a, Mod b) {
+  return (static_cast<uint8_t>(a) & static_cast<uint8_t>(b)) != 0;
 }
 
 struct KeyStroke {
@@ -57,34 +93,50 @@ struct KeyStroke {
 };
 
 struct Capabilities {
-  bool canInjectEvents{false}; // "soft"
-  bool canActAsHID{false};     // "hard"
+  bool canInjectEvents{false}; // "soft" injection via OS APIs
+  bool canActAsHID{false};     // "hard" injection as HID device
   bool needsAccessibilityPerm{false};
   bool needsInputMonitoringPerm{false};
 };
 
-class IInputBackend {
+// Single class with platform-specific implementation
+// Users only need to include this header and use InputBackend directly
+class InputBackend {
 public:
-  virtual ~IInputBackend() = default;
+  InputBackend();
+  ~InputBackend();
 
-  virtual Capabilities capabilities() const = 0;
+  // Non-copyable, movable
+  InputBackend(const InputBackend &) = delete;
+  InputBackend &operator=(const InputBackend &) = delete;
+  InputBackend(InputBackend &&) noexcept;
+  InputBackend &operator=(InputBackend &&) noexcept;
 
-  // Soft injection style
-  virtual bool keyDown(Key key, Mod mods) = 0;
-  virtual bool keyUp(Key key, Mod mods) = 0;
+  // Query capabilities of this backend
+  Capabilities capabilities() const;
 
-  virtual bool tap(Key key, Mod mods) {
-    return keyDown(key, mods) && keyUp(key, mods);
-  }
+  // Check if the backend is ready to inject events
+  bool isReady() const;
 
-  // "Type" is intentionally higher-level
-  virtual bool typeText(const std::u32string &text) = 0;
+  // Request necessary permissions (may show system dialogs)
+  // Returns true if permissions are granted
+  bool requestPermissions();
 
-  // Optional: for future HID backend
-  virtual bool connectHID() { return false; }
-  virtual bool disconnectHID() { return false; }
+  // Key press/release
+  bool keyDown(Key key, Mod mods = Mod_None);
+  bool keyUp(Key key, Mod mods = Mod_None);
+
+  // Combined key press + release
+  bool tap(Key key, Mod mods = Mod_None);
+
+  // Type arbitrary Unicode text
+  bool typeText(const std::u32string &text);
+  bool typeText(const std::string &utf8Text);
+
+private:
+  // Platform-specific implementation (pimpl idiom)
+  struct Impl;
+  Impl *m_impl{nullptr};
 };
-
-std::unique_ptr<IInputBackend> makeDefaultBackend();
 
 } // namespace input
