@@ -7,12 +7,15 @@
 #include <QVBoxLayout> // Vertical box layout for arranging widgets
 #include <QWidget>     // Base class for all UI objects
 
+#include "input/input.hpp"
+
 // Custom button that handles right-clicks by triggering the default action
 class RightClickableToolButton : public QToolButton {
 public:
   explicit RightClickableToolButton(QWidget *parent = nullptr)
       : QToolButton(parent) {
     setContextMenuPolicy(Qt::NoContextMenu); // Disable default context menu
+    setFocusPolicy(Qt::NoFocus); // Disable focus
     qDebug() << "[RightClickableToolButton] Button created";
   }
 
@@ -54,16 +57,30 @@ int main(int argc, char **argv) {
   QApplication app(argc, argv);
   qDebug() << "[main] Application started";
 
+  input::InputBackend keyboard;
+
+  if (!keyboard.isReady()) {
+    keyboard.requestPermissions(); // Shows macOS dialog
+  }
+
   // Create main window widget
   QWidget window;
   window.setWindowTitle("Qt + Meson + Conan Example");
   window.resize(360, 150);
   // Lock the window to prevent resizing
   window.setFixedSize(window.size());
+  
+  // Make the window only an overlay and not take focus 
+  window.setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
 
   // Create action for the button
   auto *action = new QAction("Run", &window);
   qDebug() << "[main] Action created:" << action->text();
+
+  QObject::connect(action, &QAction::triggered, [&]() {
+    qDebug() << "[main] Action triggered";
+    keyboard.tap(input::Key::I);
+  });
 
   // Create the custom button and add to layout
   auto *btn = new RightClickableToolButton(&window);
