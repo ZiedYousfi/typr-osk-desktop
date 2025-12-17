@@ -9,8 +9,8 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
-void Ui::makeNonActivating(QWidget *w) {
-  if (!w || !w->window())
+void Ui::makeNonActivating(QWidget *window) {
+  if (!window || !window->window())
     return;
 
   // Set the application as an accessory app (like menu bar apps)
@@ -18,10 +18,10 @@ void Ui::makeNonActivating(QWidget *w) {
   [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
 
   // Ensure the window is created
-  w->winId();
+  window->winId();
 
   NSView *nsView =
-      (__bridge NSView *)reinterpret_cast<void *>(w->window()->winId());
+      (__bridge NSView *)reinterpret_cast<void *>(window->window()->winId());
   if (!nsView)
     return;
 

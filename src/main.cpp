@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
   });
 
   // Create the I button and add to layout
-  auto *runBtn = new Ui::RightClickableToolButton(&window);
+  auto *runBtn = new Ui::Widget::RightClickableToolButton(&window);
   runBtn->setDefaultAction(runAction);
   runBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
   layout->addWidget(runBtn);
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
   });
 
   // Create the quit button and add to layout
-  auto *quitBtn = new Ui::RightClickableToolButton(&window);
+  auto *quitBtn = new Ui::Widget::RightClickableToolButton(&window);
   quitBtn->setDefaultAction(quitAction);
   quitBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
   layout->addWidget(quitBtn);

@@ -10,6 +10,8 @@
 
 namespace Ui {
 
+namespace Widget {
+
 // Event filter that blocks activation and focus events at the application level
 class NoActivationEventFilter : public QObject {
 public:
@@ -76,24 +78,26 @@ protected:
   }
 
   // Prevent focus
-  void focusInEvent(QFocusEvent *e) override {
-    e->ignore();
+  void focusInEvent(QFocusEvent *event) override {
+    event->ignore();
     clearFocus();
   }
 };
+} // namespace Widget
 
 // Make a window non-activating (overlay behavior on macOS)
 // This prevents the window from stealing focus from other applications
-void makeNonActivating(QWidget *w);
+void makeNonActivating(QWidget *window);
 
 // Install the global event filter on the application
 inline void installNoActivationFilter(QApplication *app) {
-  static NoActivationEventFilter *filter = nullptr;
-  if (!filter) {
-    filter = new NoActivationEventFilter(app);
+  static Widget::NoActivationEventFilter *filter = nullptr;
+  if (filter == nullptr) {
+    filter = new Widget::NoActivationEventFilter(app);
     app->installEventFilter(filter);
     qDebug() << "[Ui] Installed NoActivationEventFilter";
   }
 }
+
 
 } // namespace Ui
