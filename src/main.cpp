@@ -35,8 +35,8 @@ int main(int argc, char **argv) {
   layout->setContentsMargins(4, 4, 4, 4);
   layout->setSpacing(4);
 
-  // Create action for the run button
-  auto *runAction = new QAction("Run", &window);
+  // Create action for the I button
+  auto *runAction = new QAction("I", &window);
   qDebug() << "[main] Run action created:" << runAction->text();
 
   QObject::connect(runAction, &QAction::triggered, [&]() {
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     keyboard.tap(input::Key::I);
   });
 
-  // Create the run button and add to layout
+  // Create the I button and add to layout
   auto *runBtn = new Ui::RightClickableToolButton(&window);
   runBtn->setDefaultAction(runAction);
   runBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
