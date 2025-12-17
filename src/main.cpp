@@ -5,6 +5,8 @@
 #include <QVBoxLayout>  // Vertical box layout for arranging widgets
 #include <QWidget>      // Base class for all UI objects
 
+#include <memory>
+
 #include "input/input.hpp"
 #include "ui/ui.hpp"
 
@@ -28,10 +30,11 @@ int main(int argc, char **argv) {
   // Lock the window to prevent resizing
   window.setFixedSize(window.size());
 
-  // Make the window only an overlay and not take focus
   window.setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint |
-                        Qt::WindowDoesNotAcceptFocus);
-  
+                        Qt::WindowDoesNotAcceptFocus | Qt::Tool);
+
+  window.setAttribute(Qt::WA_ShowWithoutActivating, true);
+
   Ui::makeNonActivating(&window);
 
   // Create action for the button
@@ -44,7 +47,7 @@ int main(int argc, char **argv) {
   });
 
   // Create the custom button and add to layout
-  auto *btn = new Ui::RightClickableToolButton(&window);
+  auto btn = std::make_unique<Ui::RightClickableToolButton>(&window);
   btn->setDefaultAction(action); // Bind the button to the action
   btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
   qDebug() << "[main] Button added to layout";
