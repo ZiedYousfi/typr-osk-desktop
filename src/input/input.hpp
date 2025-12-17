@@ -68,23 +68,23 @@ enum class Key : uint16_t {
 
 enum Mod : uint8_t {
   Mod_None = 0,
-  Mod_Shift = 1 << 0,
-  Mod_Ctrl = 1 << 1,
-  Mod_Alt = 1 << 2,
-  Mod_Super = 1 << 3, // Cmd on macOS, Win key on Windows, Super on Linux
+  Mod_Shift = 0x01,
+  Mod_Ctrl = 0x02,
+  Mod_Alt = 0x04,
+  Mod_Super = 0x08, // Cmd on macOS, Win key on Windows, Super on Linux
 };
 
-inline Mod operator|(Mod a, Mod b) {
-  return static_cast<Mod>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+inline Mod operator|(Mod left, Mod right) {
+  return static_cast<Mod>(static_cast<uint8_t>(left) | static_cast<uint8_t>(right));
 }
 
-inline Mod &operator|=(Mod &a, Mod b) {
-  a = a | b;
-  return a;
+inline Mod &operator|=(Mod &left, Mod right) {
+  left = left | right;
+  return left;
 }
 
-inline bool operator&(Mod a, Mod b) {
-  return (static_cast<uint8_t>(a) & static_cast<uint8_t>(b)) != 0;
+inline bool operator&(Mod left, Mod right) {
+  return (static_cast<uint8_t>(left) & static_cast<uint8_t>(right)) != 0;
 }
 
 struct KeyStroke {

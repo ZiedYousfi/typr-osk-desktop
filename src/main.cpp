@@ -8,6 +8,9 @@
 #include "input/input.hpp"
 #include "ui/ui.hpp"
 
+#define DEFAULT_WINDOW_WIDTH 360
+#define DEFAULT_WINDOW_HEIGHT 150
+
 int main(int argc, char **argv) {
   QApplication app(argc, argv);
   qDebug() << "[main] Application started";
@@ -21,7 +24,7 @@ int main(int argc, char **argv) {
   // Create main window widget
   QWidget window;
   window.setWindowTitle("Qt + Meson + Conan Example");
-  window.resize(360, 150);
+  window.resize(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
   // Lock the window to prevent resizing
   window.setFixedSize(window.size());
 
