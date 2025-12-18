@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            compiler: clang
+            artifact_name: typr-osk-desktop-macos
+            asset_path: build/typr-osk-desktop
+          - os: windows-latest
+            compiler: msvc
+            artifact_name: typr-osk-desktop-windows
+            asset_path: build/typr-osk-desktop.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Meson, Ninja, and Conan
+        run: pip install meson ninja conan
+
+      - name: Install pkgconf (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install pkgconf
+
+      - name: Install pkgconf (Windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install pkgconf
+
+      - name: Setup MSVC (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup Conan profile
+        env:
+          CC: ${{ matrix.compiler == 'clang' && 'clang' || '' }}
+          CXX: ${{ matrix.compiler == 'clang' && 'clang++' || '' }}
+        run: |
+          conan profile detect --force
+
+      - name: Install Dependencies (Conan)
+        run: |
+          conan install . --output-folder=conan-build --build=missing -s build_type=Release -s compiler.cppstd=20
+
+      - name: Configure Meson
+        env:
+          CC: ${{ matrix.compiler == 'clang' && 'clang' || '' }}
+          CXX: ${{ matrix.compiler == 'clang' && 'clang++' || '' }}
+          PKG_CONFIG_PATH: ${{ github.workspace }}/conan-build
+        run: |
+          meson setup build --native-file conan-build/conan_meson_native.ini --buildtype release
+
+      - name: Build
+        run: |
+          meson compile -C build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.asset_path }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: typr-osk-desktop-macos
+          path: ./macos
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: typr-osk-desktop-windows
+          path: ./windows
+
+      - name: Prepare Assets
+        run: |
+          mkdir -p assets
+          cp ./macos/typr-osk-desktop ./assets/typr-osk-desktop-macos
+          cp ./windows/typr-osk-desktop.exe ./assets/typr-osk-desktop-windows.exe
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            assets/typr-osk-desktop-macos
+            assets/typr-osk-desktop-windows.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
