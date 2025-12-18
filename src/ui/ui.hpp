@@ -46,6 +46,16 @@ public:
     qDebug() << "[RightClickableToolButton] Button created";
   }
 
+  explicit RightClickableToolButton(QLayout *layout, QWidget *parent = nullptr)
+      : QToolButton(parent) {
+    // Layout parameter is currently unused to avoid incomplete type issues.
+    Q_UNUSED(layout);
+    setContextMenuPolicy(Qt::NoContextMenu); // Disable default context menu
+    setFocusPolicy(Qt::NoFocus);             // Disable focus
+    setAttribute(Qt::WA_ShowWithoutActivating, true);
+    qDebug() << "[RightClickableToolButton] Button created (layout ctor)";
+  }
+
 protected:
   void mousePressEvent(QMouseEvent *event) override {
     if (event->button() == Qt::RightButton) {

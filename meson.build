@@ -13,6 +13,7 @@ qt6_dep = dependency('qt6', modules: ['Core', 'Gui', 'Widgets'])
 # Header files
 headers = [
   'src/core/input.hpp',
+  'src/core/layout.hpp',
   'src/input/input.hpp',
   'src/ui/ui.hpp',
 ]
@@ -21,6 +22,7 @@ headers = [
 sources = [
   'src/main.cpp',
   'src/core/input.cpp',
+  'src/core/layout.cpp',
 ]
 
 # Include directories
