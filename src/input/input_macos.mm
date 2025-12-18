@@ -15,6 +15,157 @@ namespace input {
 
 namespace {
 
+// Check if a key should be typed as a Unicode character instead of using virtual key codes
+// This ensures keyboard layout independence for printable characters
+bool shouldTypeAsCharacter(Key key) {
+  switch (key) {
+  // Letters should be typed as characters to respect keyboard layout
+  case Key::A:
+  case Key::B:
+  case Key::C:
+  case Key::D:
+  case Key::E:
+  case Key::F:
+  case Key::G:
+  case Key::H:
+  case Key::I:
+  case Key::J:
+  case Key::K:
+  case Key::L:
+  case Key::M:
+  case Key::N:
+  case Key::O:
+  case Key::P:
+  case Key::Q:
+  case Key::R:
+  case Key::S:
+  case Key::T:
+  case Key::U:
+  case Key::V:
+  case Key::W:
+  case Key::X:
+  case Key::Y:
+  case Key::Z:
+  // Numbers should be typed as characters to respect keyboard layout
+  case Key::Num0:
+  case Key::Num1:
+  case Key::Num2:
+  case Key::Num3:
+  case Key::Num4:
+  case Key::Num5:
+  case Key::Num6:
+  case Key::Num7:
+  case Key::Num8:
+  case Key::Num9:
+  // Punctuation should be typed as characters to respect keyboard layout
+  case Key::Grave:
+  case Key::Minus:
+  case Key::Equal:
+  case Key::LeftBracket:
+  case Key::RightBracket:
+  case Key::Backslash:
+  case Key::Semicolon:
+  case Key::Apostrophe:
+  case Key::Comma:
+  case Key::Period:
+  case Key::Slash:
+    return true;
+  default:
+    return false;
+  }
+}
+
+// Convert Key enum to the character it should produce (lowercase, no modifiers)
+char32_t keyToCharacter(Key key) {
+  switch (key) {
+  case Key::A: return U'a';
+  case Key::B: return U'b';
+  case Key::C: return U'c';
+  case Key::D: return U'd';
+  case Key::E: return U'e';
+  case Key::F: return U'f';
+  case Key::G: return U'g';
+  case Key::H: return U'h';
+  case Key::I: return U'i';
+  case Key::J: return U'j';
+  case Key::K: return U'k';
+  case Key::L: return U'l';
+  case Key::M: return U'm';
+  case Key::N: return U'n';
+  case Key::O: return U'o';
+  case Key::P: return U'p';
+  case Key::Q: return U'q';
+  case Key::R: return U'r';
+  case Key::S: return U's';
+  case Key::T: return U't';
+  case Key::U: return U'u';
+  case Key::V: return U'v';
+  case Key::W: return U'w';
+  case Key::X: return U'x';
+  case Key::Y: return U'y';
+  case Key::Z: return U'z';
+  case Key::Num0: return U'0';
+  case Key::Num1: return U'1';
+  case Key::Num2: return U'2';
+  case Key::Num3: return U'3';
+  case Key::Num4: return U'4';
+  case Key::Num5: return U'5';
+  case Key::Num6: return U'6';
+  case Key::Num7: return U'7';
+  case Key::Num8: return U'8';
+  case Key::Num9: return U'9';
+  case Key::Grave: return U'`';
+  case Key::Minus: return U'-';
+  case Key::Equal: return U'=';
+  case Key::LeftBracket: return U'[';
+  case Key::RightBracket: return U']';
+  case Key::Backslash: return U'\\';
+  case Key::Semicolon: return U';';
+  case Key::Apostrophe: return U'\'';
+  case Key::Comma: return U',';
+  case Key::Period: return U'.';
+  case Key::Slash: return U'/';
+  case Key::Space: return U' ';
+  default: return 0;
+  }
+}
+
+// Apply modifiers to a character (e.g., Shift makes it uppercase)
+char32_t applyModifiersToCharacter(char32_t c, Mod mods) {
+  // Handle Shift modifier for letters
+  if (mods & Mod_Shift) {
+    if (c >= U'a' && c <= U'z') {
+      return c - U'a' + U'A';
+    }
+    // Handle shift for punctuation and numbers
+    switch (c) {
+    case U'`': return U'~';
+    case U'1': return U'!';
+    case U'2': return U'@';
+    case U'3': return U'#';
+    case U'4': return U'$';
+    case U'5': return U'%';
+    case U'6': return U'^';
+    case U'7': return U'&';
+    case U'8': return U'*';
+    case U'9': return U'(';
+    case U'0': return U')';
+    case U'-': return U'_';
+    case U'=': return U'+';
+    case U'[': return U'{';
+    case U']': return U'}';
+    case U'\\': return U'|';
+    case U';': return U':';
+    case U'\'': return U'"';
+    case U',': return U'<';
+    case U'.': return U'>';
+    case U'/': return U'?';
+    default: break;
+    }
+  }
+  return c;
+}
+
 // Convert input::Key to macOS virtual key code (CGKeyCode)
 CGKeyCode keyToVirtualKeyCode(Key key) {
   switch (key) {
@@ -399,6 +550,17 @@ struct InputBackend::Impl {
   }
 
   bool keyDown(Key key, Mod mods) {
+    // For printable characters, use Unicode input to respect keyboard layout
+    if (shouldTypeAsCharacter(key)) {
+      // For keyDown, we can't really do a "half type", so we'll use virtual key code
+      // but this is mainly for toggle modes. Normal typing should use tap().
+      CGKeyCode keyCode = keyToVirtualKeyCode(key);
+      if (keyCode == UINT16_MAX) {
+        return false;
+      }
+      return postKeyEvent(keyCode, true, modsToCGFlags(mods));
+    }
+
     CGKeyCode keyCode = keyToVirtualKeyCode(key);
     if (keyCode == UINT16_MAX) {
       return false;
@@ -407,6 +569,16 @@ struct InputBackend::Impl {
   }
 
   bool keyUp(Key key, Mod mods) {
+    // For printable characters, use Unicode input to respect keyboard layout
+    if (shouldTypeAsCharacter(key)) {
+      // For keyUp, we can't really do a "half type", so we'll use virtual key code
+      CGKeyCode keyCode = keyToVirtualKeyCode(key);
+      if (keyCode == UINT16_MAX) {
+        return false;
+      }
+      return postKeyEvent(keyCode, false, modsToCGFlags(mods));
+    }
+
     CGKeyCode keyCode = keyToVirtualKeyCode(key);
     if (keyCode == UINT16_MAX) {
       return false;
@@ -415,6 +587,17 @@ struct InputBackend::Impl {
   }
 
   bool tap(Key key, Mod mods) {
+    // For printable characters, use Unicode input to respect keyboard layout
+    if (shouldTypeAsCharacter(key)) {
+      char32_t c = keyToCharacter(key);
+      if (c == 0) {
+        return false;
+      }
+      // Apply modifiers (like Shift) to the character
+      c = applyModifiersToCharacter(c, mods);
+      return typeCharacter(c);
+    }
+
     return keyDown(key, mods) && keyUp(key, mods);
   }
 
