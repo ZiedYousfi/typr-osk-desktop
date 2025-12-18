@@ -6,8 +6,8 @@ namespace Layout {
 
 Element ElementBuilder::addKey(input::Key key, int row, int column,
                                float widthAsUnit, bool toggle) {
-  auto *btn = new Ui::Widget::RightClickableToolButton(parent_);
-  auto input = std::make_unique<Core::Input>(key, btn, backend_);
+  auto btn = std::make_unique<Ui::Widget::RightClickableToolButton>(parent_);
+  auto input = std::make_unique<Core::Input>(key, btn.get(), backend_);
   if (toggle) {
     input->setToggleMode(true);
   }
@@ -17,7 +17,7 @@ Element ElementBuilder::addKey(input::Key key, int row, int column,
 }
 
 QVBoxLayout *toQtLayout(const std::vector<Element> &elements) {
-  auto *mainLayout = new QVBoxLayout();
+  auto mainLayout = std::make_unique<QVBoxLayout>();
   mainLayout->setContentsMargins(4, 4, 4, 4);
   mainLayout->setSpacing(4);
 
@@ -30,14 +30,13 @@ QVBoxLayout *toQtLayout(const std::vector<Element> &elements) {
 
   // Iterate through sorted rows
   for (auto &[rowIdx, rowElements] : rows) {
-    auto *rowLayout = new QHBoxLayout();
+    auto rowLayout = std::make_unique<QHBoxLayout>();
     rowLayout->setSpacing(4);
 
     // Sort element pointers within the row by their column index
-    std::sort(rowElements.begin(), rowElements.end(),
-              [](const Element *lhs, const Element *rhs) {
-                return lhs->column() < rhs->column();
-              });
+    std::ranges::sort(rowElements, [](const Element *lhs, const Element *rhs) {
+      return lhs->column() < rhs->column();
+    });
 
     for (const auto *element : rowElements) {
       auto *btn = element->input()->button();
@@ -53,10 +52,10 @@ QVBoxLayout *toQtLayout(const std::vector<Element> &elements) {
       }
     }
 
-    mainLayout->addLayout(rowLayout);
+    mainLayout->addLayout(rowLayout.release());
   }
 
-  return mainLayout;
+  return mainLayout.release();
 }
 
 } // namespace Layout

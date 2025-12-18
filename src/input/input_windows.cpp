@@ -1,9 +1,8 @@
 // input_windows.cpp
 // Windows backend for keyboard input injection using SendInput API
 
-#include "input.hpp"
-
 #ifdef _WIN32
+#include "input.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
