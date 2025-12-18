@@ -15,8 +15,12 @@ namespace input {
 
 namespace {
 
-// Check if a key should be typed as a Unicode character instead of using virtual key codes
-// This ensures keyboard layout independence for printable characters
+// Check if a key should be typed as a Unicode character instead of using virtual key codes.
+// This is a workaround for macOS where virtual key codes (like kVK_ANSI_A) are hardcoded
+// to physical positions on a US-QWERTY layout, ignoring the user's layout settings.
+//
+// NOTE: This approach is subject to change as it may have issues with complex layouts
+// (dead keys, ligatures, etc.). Feedback is welcome if certain layouts fail.
 bool shouldTypeAsCharacter(Key key) {
   switch (key) {
   // Letters should be typed as characters to respect keyboard layout
@@ -587,7 +591,8 @@ struct InputBackend::Impl {
   }
 
   bool tap(Key key, Mod mods) {
-    // For printable characters, use Unicode input to respect keyboard layout
+    // For printable characters, use Unicode input workaround to ensure the correct
+    // character is typed regardless of the user's macOS keyboard layout.
     if (shouldTypeAsCharacter(key)) {
       char32_t c = keyToCharacter(key);
       if (c == 0) {
