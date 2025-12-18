@@ -45,6 +45,10 @@ if host_machine.system() == 'darwin'
   deps += [coregraphics_dep, carbon_dep, appservices_dep, foundation_dep, cocoa_dep]
 endif
 
+if host_machine.system() == 'windows'
+  sources += 'src/input/input_windows.cpp'
+endif
+
 executable(
   'typr-osk-desktop',
   sources + headers,
