@@ -123,6 +123,17 @@ enum class Key : uint16_t {
   BrightnessDown = 121,
   BrightnessUp = 122,
   Eject = 123,
+  Grave = 124,
+  Minus = 125,
+  Equal = 126,
+  LeftBracket = 127,
+  RightBracket = 128,
+  Backslash = 129,
+  Semicolon = 130,
+  Apostrophe = 131,
+  Comma = 132,
+  Period = 133,
+  Slash = 134,
   CharacterInput = 0xFFFE,
   BackspaceDelete = 0xFFFF,
 };
@@ -242,23 +253,23 @@ inline std::string keyToString(Key key) {
   case Key::F20:
     return "F20";
   case Key::Enter:
-    return "Enter";
+    return "Return";
   case Key::Escape:
-    return "Escape";
+    return "Esc";
   case Key::Backspace:
-    return "Backspace";
+    return "Delete";
   case Key::Tab:
     return "Tab";
   case Key::Space:
     return "Space";
   case Key::Left:
-    return "Left";
+    return "←";
   case Key::Right:
-    return "Right";
+    return "→";
   case Key::Up:
-    return "Up";
+    return "↑";
   case Key::Down:
-    return "Down";
+    return "↓";
   case Key::Home:
     return "Home";
   case Key::End:
@@ -310,21 +321,17 @@ inline std::string keyToString(Key key) {
   case Key::Numpad9:
     return "Numpad9";
   case Key::ShiftLeft:
-    return "ShiftLeft";
   case Key::ShiftRight:
-    return "ShiftRight";
+    return "Shift";
   case Key::CtrlLeft:
-    return "CtrlLeft";
   case Key::CtrlRight:
-    return "CtrlRight";
+    return "Ctrl";
   case Key::AltLeft:
-    return "AltLeft";
   case Key::AltRight:
-    return "AltRight";
+    return "Opt";
   case Key::SuperLeft:
-    return "SuperLeft";
   case Key::SuperRight:
-    return "SuperRight";
+    return "Cmd";
   case Key::CapsLock:
     return "CapsLock";
   case Key::NumLock:
@@ -359,6 +366,28 @@ inline std::string keyToString(Key key) {
     return "BrightnessUp";
   case Key::Eject:
     return "Eject";
+  case Key::Grave:
+    return "`";
+  case Key::Minus:
+    return "-";
+  case Key::Equal:
+    return "=";
+  case Key::LeftBracket:
+    return "[";
+  case Key::RightBracket:
+    return "]";
+  case Key::Backslash:
+    return "\\";
+  case Key::Semicolon:
+    return ";";
+  case Key::Apostrophe:
+    return "'";
+  case Key::Comma:
+    return ",";
+  case Key::Period:
+    return ".";
+  case Key::Slash:
+    return "/";
   case Key::CharacterInput:
     return "CharacterInput";
   case Key::BackspaceDelete:

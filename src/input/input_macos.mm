@@ -92,6 +92,29 @@ CGKeyCode keyToVirtualKeyCode(Key key) {
     return kVK_ANSI_8;
   case Key::Num9:
     return kVK_ANSI_9;
+  // Punctuation
+  case Key::Grave:
+    return kVK_ANSI_Grave;
+  case Key::Minus:
+    return kVK_ANSI_Minus;
+  case Key::Equal:
+    return kVK_ANSI_Equal;
+  case Key::LeftBracket:
+    return kVK_ANSI_LeftBracket;
+  case Key::RightBracket:
+    return kVK_ANSI_RightBracket;
+  case Key::Backslash:
+    return kVK_ANSI_Backslash;
+  case Key::Semicolon:
+    return kVK_ANSI_Semicolon;
+  case Key::Apostrophe:
+    return kVK_ANSI_Quote;
+  case Key::Comma:
+    return kVK_ANSI_Comma;
+  case Key::Period:
+    return kVK_ANSI_Period;
+  case Key::Slash:
+    return kVK_ANSI_Slash;
   // Numpad
   case Key::Numpad0:
     return kVK_ANSI_Keypad0;

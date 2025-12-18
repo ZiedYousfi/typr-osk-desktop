@@ -20,6 +20,7 @@ headers = [
 # Source files
 sources = [
   'src/main.cpp',
+  'src/core/input.cpp',
 ]
 
 # Include directories
