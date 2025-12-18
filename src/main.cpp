@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   QWidget window;
   window.setWindowTitle("Typr OSK");
 
-  window.setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint |
+  window.setWindowFlags(Qt::WindowStaysOnTopHint |
                         Qt::WindowDoesNotAcceptFocus | Qt::Tool);
 
   window.setAttribute(Qt::WA_ShowWithoutActivating);
