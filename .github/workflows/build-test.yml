@@ -59,15 +59,15 @@ jobs:
 
       - name: Install Dependencies (Conan)
         run: |
-          conan install . --output-folder=conan-build --build=missing -s build_type=Release -s compiler.cppstd=20
+          conan install . --output-folder=conan-build --build=missing -s build_type=Release -s compiler.cppstd=20 ${{ matrix.os == 'windows-latest' && '-o qt/*:shared=True' || '' }}
 
       - name: Configure Meson
         env:
           CC: ${{ matrix.compiler == 'clang' && 'clang' || '' }}
           CXX: ${{ matrix.compiler == 'clang' && 'clang++' || '' }}
           PKG_CONFIG: pkg-config
-          PKG_CONFIG_PATH: ${{ github.workspace }}/conan-build
-          CMAKE_PREFIX_PATH: ${{ github.workspace }}/conan-build
+          PKG_CONFIG_PATH: ${{ matrix.os == 'windows-latest' && format('{0}\conan-build', github.workspace) || format('{0}/conan-build', github.workspace) }}
+          CMAKE_PREFIX_PATH: ${{ matrix.os == 'windows-latest' && format('{0}\conan-build', github.workspace) || format('{0}/conan-build', github.workspace) }}
         run: |
           meson setup build --native-file conan-build/conan_meson_native.ini --buildtype release
 

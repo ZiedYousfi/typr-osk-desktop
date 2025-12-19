@@ -9,4 +9,4 @@ qt/*:with_odbc=False
 
 [generators]
 MesonToolchain
-CMakeDeps
+PkgConfigDeps
