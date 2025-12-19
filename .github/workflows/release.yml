@@ -64,9 +64,9 @@ jobs:
         env:
           CC: ${{ matrix.compiler == 'clang' && 'clang' || '' }}
           CXX: ${{ matrix.compiler == 'clang' && 'clang++' || '' }}
-          PKG_CONFIG_PATH: ${{ github.workspace }}/conan-build
+          PKG_CONFIG_PATH: ${{ github.workspace }}/conan-build/generators
         run: |
-          meson setup build --native-file conan-build/conan_meson_native.ini --buildtype release
+          meson setup build --native-file conan-build/generators/conan_meson_native.ini --buildtype release
 
       - name: Build
         run: |

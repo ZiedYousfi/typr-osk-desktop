@@ -10,6 +10,3 @@ qt/*:with_odbc=False
 [generators]
 MesonToolchain
 PkgConfigDeps
-
-[layout]
-cmake_layout
