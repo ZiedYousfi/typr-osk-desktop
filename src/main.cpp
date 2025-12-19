@@ -23,6 +23,7 @@ int main(int argc, char **argv) {
   QApplication app(argc, argv);
   qDebug() << "[main] Application started";
 
+  Ui::initializeAppleApp();
   Ui::installNoActivationFilter(&app);
 
   input::InputBackend keyboard;
@@ -124,10 +125,14 @@ int main(int argc, char **argv) {
 
   window.adjustSize();
   window.setFixedSize(window.sizeHint());
+  qDebug() << "[main] Showing window";
   window.show();
 
+  qDebug() << "[main] Processing events";
   app.processEvents();
+  qDebug() << "[main] Making non-activating";
   Ui::makeNonActivating(&window);
 
+  qDebug() << "[main] Entering event loop";
   return app.exec();
 }

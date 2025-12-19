@@ -20,17 +20,6 @@ public:
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override {
-    switch (event->type()) {
-    case QEvent::ApplicationActivate:
-    case QEvent::WindowActivate:
-    case QEvent::FocusIn:
-    case QEvent::FocusAboutToChange:
-      // Block these events to prevent activation
-      qDebug() << "[NoActivationEventFilter] Blocking event:" << event->type();
-      return true; // Event handled (blocked)
-    default:
-      break;
-    }
     return QObject::eventFilter(obj, event);
   }
 };
@@ -94,6 +83,9 @@ protected:
   }
 };
 } // namespace Widget
+
+// Initialize app properties (macOS specific)
+void initializeAppleApp();
 
 // Make a window non-activating (overlay behavior on macOS)
 // This prevents the window from stealing focus from other applications

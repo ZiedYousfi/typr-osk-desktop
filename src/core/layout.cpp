@@ -6,14 +6,14 @@ namespace Layout {
 
 Element ElementBuilder::addKey(input::Key key, int row, int column,
                                float widthAsUnit, bool toggle) {
-  auto btn = std::make_unique<Ui::Widget::RightClickableToolButton>(parent_);
-  auto input = std::make_unique<Core::Input>(key, btn.get(), backend_);
+  auto *btn = new Ui::Widget::RightClickableToolButton(parent_);
+  auto input = std::make_unique<Core::Input>(key, btn, backend_);
   if (toggle) {
     input->setToggleMode(true);
   }
 
-  return Element(std::move(input), Element::Size{widthAsUnit, 1.0F},
-                 Element::Position{row, column});
+  return Element(std::move(input), Element::Size{.widthAsUnit=widthAsUnit, .heightAsUnit=1.0F},
+                 Element::Position{.row=row, .column=column});
 }
 
 QVBoxLayout *toQtLayout(const std::vector<Element> &elements) {

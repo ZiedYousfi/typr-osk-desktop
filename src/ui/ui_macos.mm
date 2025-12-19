@@ -8,13 +8,15 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
-void Ui::makeNonActivating(QWidget *window) {
-  if (!window || !window->window())
-    return;
-
+void Ui::initializeAppleApp() {
   // Set the application as an accessory app (like menu bar apps)
   // This prevents it from appearing in Dock and Cmd+Tab, and limits activation
   [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+}
+
+void Ui::makeNonActivating(QWidget *window) {
+  if (!window || !window->window())
+    return;
 
   // Ensure the window is created
   window->winId();
