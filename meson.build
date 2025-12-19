@@ -4,6 +4,10 @@ project(
   version: '0.0.1',
   default_options: [
     'cpp_std=c++20',
+    'default_library=static', # Prefer static linking
+    'b_ndebug=true', # Disable debug assertions
+    'optimization=3', # Full optimization for release
+    'strip=true', # Strip symbols in the final binary
   ],
 )
 
