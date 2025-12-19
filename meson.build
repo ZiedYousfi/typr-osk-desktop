@@ -47,6 +47,7 @@ endif
 
 if host_machine.system() == 'windows'
   sources += 'src/input/input_windows.cpp'
+  sources += 'src/ui/ui_windows.cpp'
 endif
 
 executable(
