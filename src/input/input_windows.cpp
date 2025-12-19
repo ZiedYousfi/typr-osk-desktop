@@ -8,278 +8,13 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <windows.h>
 
 namespace input {
 
 namespace {
-
-// Convert input::Key to Windows Virtual-Key code
-WORD keyToWinVK(Key key) {
-  switch (key) {
-  // Letters
-  case Key::A:
-    return 'A';
-  case Key::B:
-    return 'B';
-  case Key::C:
-    return 'C';
-  case Key::D:
-    return 'D';
-  case Key::E:
-    return 'E';
-  case Key::F:
-    return 'F';
-  case Key::G:
-    return 'G';
-  case Key::H:
-    return 'H';
-  case Key::I:
-    return 'I';
-  case Key::J:
-    return 'J';
-  case Key::K:
-    return 'K';
-  case Key::L:
-    return 'L';
-  case Key::M:
-    return 'M';
-  case Key::N:
-    return 'N';
-  case Key::O:
-    return 'O';
-  case Key::P:
-    return 'P';
-  case Key::Q:
-    return 'Q';
-  case Key::R:
-    return 'R';
-  case Key::S:
-    return 'S';
-  case Key::T:
-    return 'T';
-  case Key::U:
-    return 'U';
-  case Key::V:
-    return 'V';
-  case Key::W:
-    return 'W';
-  case Key::X:
-    return 'X';
-  case Key::Y:
-    return 'Y';
-  case Key::Z:
-    return 'Z';
-
-  // Numbers
-  case Key::Num0:
-    return '0';
-  case Key::Num1:
-    return '1';
-  case Key::Num2:
-    return '2';
-  case Key::Num3:
-    return '3';
-  case Key::Num4:
-    return '4';
-  case Key::Num5:
-    return '5';
-  case Key::Num6:
-    return '6';
-  case Key::Num7:
-    return '7';
-  case Key::Num8:
-    return '8';
-  case Key::Num9:
-    return '9';
-
-  // Function keys
-  case Key::F1:
-    return VK_F1;
-  case Key::F2:
-    return VK_F2;
-  case Key::F3:
-    return VK_F3;
-  case Key::F4:
-    return VK_F4;
-  case Key::F5:
-    return VK_F5;
-  case Key::F6:
-    return VK_F6;
-  case Key::F7:
-    return VK_F7;
-  case Key::F8:
-    return VK_F8;
-  case Key::F9:
-    return VK_F9;
-  case Key::F10:
-    return VK_F10;
-  case Key::F11:
-    return VK_F11;
-  case Key::F12:
-    return VK_F12;
-  case Key::F13:
-    return VK_F13;
-  case Key::F14:
-    return VK_F14;
-  case Key::F15:
-    return VK_F15;
-  case Key::F16:
-    return VK_F16;
-  case Key::F17:
-    return VK_F17;
-  case Key::F18:
-    return VK_F18;
-  case Key::F19:
-    return VK_F19;
-  case Key::F20:
-    return VK_F20;
-
-  // Control keys
-  case Key::Enter:
-    return VK_RETURN;
-  case Key::Escape:
-    return VK_ESCAPE;
-  case Key::Backspace:
-    return VK_BACK;
-  case Key::Tab:
-    return VK_TAB;
-  case Key::Space:
-    return VK_SPACE;
-  case Key::Delete:
-    return VK_DELETE;
-  case Key::Insert:
-    return VK_INSERT;
-  case Key::Pause:
-    return VK_PAUSE;
-
-  // Navigation
-  case Key::Left:
-    return VK_LEFT;
-  case Key::Right:
-    return VK_RIGHT;
-  case Key::Up:
-    return VK_UP;
-  case Key::Down:
-    return VK_DOWN;
-  case Key::Home:
-    return VK_HOME;
-  case Key::End:
-    return VK_END;
-  case Key::PageUp:
-    return VK_PRIOR;
-  case Key::PageDown:
-    return VK_NEXT;
-
-  // Punctuation (Layout dependent, but SendInput usually works with VKs)
-  case Key::Grave:
-    return VK_OEM_3;
-  case Key::Minus:
-    return VK_OEM_MINUS;
-  case Key::Equal:
-    return VK_OEM_PLUS;
-  case Key::LeftBracket:
-    return VK_OEM_4;
-  case Key::RightBracket:
-    return VK_OEM_6;
-  case Key::Backslash:
-    return VK_OEM_5;
-  case Key::Semicolon:
-    return VK_OEM_1;
-  case Key::Apostrophe:
-    return VK_OEM_7;
-  case Key::Comma:
-    return VK_OEM_COMMA;
-  case Key::Period:
-    return VK_OEM_PERIOD;
-  case Key::Slash:
-    return VK_OEM_2;
-
-  // Numpad
-  case Key::Numpad0:
-    return VK_NUMPAD0;
-  case Key::Numpad1:
-    return VK_NUMPAD1;
-  case Key::Numpad2:
-    return VK_NUMPAD2;
-  case Key::Numpad3:
-    return VK_NUMPAD3;
-  case Key::Numpad4:
-    return VK_NUMPAD4;
-  case Key::Numpad5:
-    return VK_NUMPAD5;
-  case Key::Numpad6:
-    return VK_NUMPAD6;
-  case Key::Numpad7:
-    return VK_NUMPAD7;
-  case Key::Numpad8:
-    return VK_NUMPAD8;
-  case Key::Numpad9:
-    return VK_NUMPAD9;
-  case Key::NumpadDivide:
-    return VK_DIVIDE;
-  case Key::NumpadMultiply:
-    return VK_MULTIPLY;
-  case Key::NumpadMinus:
-    return VK_SUBTRACT;
-  case Key::NumpadPlus:
-    return VK_ADD;
-  case Key::NumpadDecimal:
-    return VK_DECIMAL;
-  case Key::NumpadEnter:
-    return VK_RETURN; // Note: No specific VK for Numpad Enter
-
-  // Modifiers
-  case Key::ShiftLeft:
-    return VK_LSHIFT;
-  case Key::ShiftRight:
-    return VK_RSHIFT;
-  case Key::CtrlLeft:
-    return VK_LCONTROL;
-  case Key::CtrlRight:
-    return VK_RCONTROL;
-  case Key::AltLeft:
-    return VK_LMENU;
-  case Key::AltRight:
-    return VK_RMENU;
-  case Key::SuperLeft:
-    return VK_LWIN;
-  case Key::SuperRight:
-    return VK_RWIN;
-
-  // Locks
-  case Key::CapsLock:
-    return VK_CAPITAL;
-  case Key::NumLock:
-    return VK_NUMLOCK;
-  case Key::ScrollLock:
-    return VK_SCROLL;
-
-  // Media/Special
-  case Key::PrintScreen:
-    return VK_SNAPSHOT;
-  case Key::Menu:
-    return VK_APPS;
-  case Key::Mute:
-    return VK_VOLUME_MUTE;
-  case Key::VolumeDown:
-    return VK_VOLUME_DOWN;
-  case Key::VolumeUp:
-    return VK_VOLUME_UP;
-  case Key::MediaPlayPause:
-    return VK_MEDIA_PLAY_PAUSE;
-  case Key::MediaStop:
-    return VK_MEDIA_STOP;
-  case Key::MediaNext:
-    return VK_MEDIA_NEXT_TRACK;
-  case Key::MediaPrevious:
-    return VK_MEDIA_PREV_TRACK;
-
-  default:
-    return 0;
-  }
-}
 
 // Convert UTF-32 string to UTF-16 (Windows native)
 std::wstring utf32ToWString(const std::u32string &text) {
@@ -307,6 +42,213 @@ std::wstring utf8ToWString(const std::string &utf8) {
                       size_needed);
   return wstrTo;
 }
+
+// Helper to normalize characters for comparison (lowercase)
+wchar_t normalizeChar(wchar_t c) {
+  if (c >= L'A' && c <= L'Z') {
+    return c - L'A' + L'a';
+  }
+  return c;
+}
+
+// Query the system to find what character a virtual key produces
+wchar_t getCharacterForVirtualKey(WORD vk, HKL layout) {
+  // Get the scan code for this virtual key
+  UINT scanCode = MapVirtualKeyExW(vk, MAPVK_VK_TO_VSC, layout);
+  if (scanCode == 0) {
+    return 0;
+  }
+
+  // Use ToUnicodeEx to get the character
+  BYTE keyboardState[256] = {0};
+  wchar_t buffer[4] = {0};
+
+  int result = ToUnicodeEx(vk, scanCode, keyboardState, buffer, 4, 0, layout);
+
+  if (result == 1) {
+    return buffer[0];
+  }
+
+  return 0;
+}
+
+// Build a mapping from our Key enum to Windows virtual key codes by scanning
+// the keyboard layout
+class KeyboardLayoutMapper {
+public:
+  KeyboardLayoutMapper() { buildMappings(); }
+
+  WORD getVirtualKey(Key key) const {
+    // For non-character keys, return fixed mappings
+    auto it = m_fixedMappings.find(key);
+    if (it != m_fixedMappings.end()) {
+      return it->second;
+    }
+
+    // For character keys, use the dynamically built mapping
+    auto it2 = m_keyToVirtualKey.find(key);
+    if (it2 != m_keyToVirtualKey.end()) {
+      return it2->second;
+    }
+
+    return 0;
+  }
+
+private:
+  void buildMappings() {
+    // First, set up fixed mappings for non-character keys (these don't change
+    // with layout)
+    m_fixedMappings[Key::Enter] = VK_RETURN;
+    m_fixedMappings[Key::Escape] = VK_ESCAPE;
+    m_fixedMappings[Key::Backspace] = VK_BACK;
+    m_fixedMappings[Key::Tab] = VK_TAB;
+    m_fixedMappings[Key::Space] = VK_SPACE;
+    m_fixedMappings[Key::Delete] = VK_DELETE;
+    m_fixedMappings[Key::Insert] = VK_INSERT;
+    m_fixedMappings[Key::Pause] = VK_PAUSE;
+    m_fixedMappings[Key::Left] = VK_LEFT;
+    m_fixedMappings[Key::Right] = VK_RIGHT;
+    m_fixedMappings[Key::Up] = VK_UP;
+    m_fixedMappings[Key::Down] = VK_DOWN;
+    m_fixedMappings[Key::Home] = VK_HOME;
+    m_fixedMappings[Key::End] = VK_END;
+    m_fixedMappings[Key::PageUp] = VK_PRIOR;
+    m_fixedMappings[Key::PageDown] = VK_NEXT;
+    m_fixedMappings[Key::F1] = VK_F1;
+    m_fixedMappings[Key::F2] = VK_F2;
+    m_fixedMappings[Key::F3] = VK_F3;
+    m_fixedMappings[Key::F4] = VK_F4;
+    m_fixedMappings[Key::F5] = VK_F5;
+    m_fixedMappings[Key::F6] = VK_F6;
+    m_fixedMappings[Key::F7] = VK_F7;
+    m_fixedMappings[Key::F8] = VK_F8;
+    m_fixedMappings[Key::F9] = VK_F9;
+    m_fixedMappings[Key::F10] = VK_F10;
+    m_fixedMappings[Key::F11] = VK_F11;
+    m_fixedMappings[Key::F12] = VK_F12;
+    m_fixedMappings[Key::F13] = VK_F13;
+    m_fixedMappings[Key::F14] = VK_F14;
+    m_fixedMappings[Key::F15] = VK_F15;
+    m_fixedMappings[Key::F16] = VK_F16;
+    m_fixedMappings[Key::F17] = VK_F17;
+    m_fixedMappings[Key::F18] = VK_F18;
+    m_fixedMappings[Key::F19] = VK_F19;
+    m_fixedMappings[Key::F20] = VK_F20;
+    m_fixedMappings[Key::ShiftLeft] = VK_LSHIFT;
+    m_fixedMappings[Key::ShiftRight] = VK_RSHIFT;
+    m_fixedMappings[Key::CtrlLeft] = VK_LCONTROL;
+    m_fixedMappings[Key::CtrlRight] = VK_RCONTROL;
+    m_fixedMappings[Key::AltLeft] = VK_LMENU;
+    m_fixedMappings[Key::AltRight] = VK_RMENU;
+    m_fixedMappings[Key::SuperLeft] = VK_LWIN;
+    m_fixedMappings[Key::SuperRight] = VK_RWIN;
+    m_fixedMappings[Key::CapsLock] = VK_CAPITAL;
+    m_fixedMappings[Key::NumLock] = VK_NUMLOCK;
+    m_fixedMappings[Key::ScrollLock] = VK_SCROLL;
+    m_fixedMappings[Key::PrintScreen] = VK_SNAPSHOT;
+    m_fixedMappings[Key::Menu] = VK_APPS;
+    m_fixedMappings[Key::Mute] = VK_VOLUME_MUTE;
+    m_fixedMappings[Key::VolumeDown] = VK_VOLUME_DOWN;
+    m_fixedMappings[Key::VolumeUp] = VK_VOLUME_UP;
+    m_fixedMappings[Key::MediaPlayPause] = VK_MEDIA_PLAY_PAUSE;
+    m_fixedMappings[Key::MediaStop] = VK_MEDIA_STOP;
+    m_fixedMappings[Key::MediaNext] = VK_MEDIA_NEXT_TRACK;
+    m_fixedMappings[Key::MediaPrevious] = VK_MEDIA_PREV_TRACK;
+    m_fixedMappings[Key::Numpad0] = VK_NUMPAD0;
+    m_fixedMappings[Key::Numpad1] = VK_NUMPAD1;
+    m_fixedMappings[Key::Numpad2] = VK_NUMPAD2;
+    m_fixedMappings[Key::Numpad3] = VK_NUMPAD3;
+    m_fixedMappings[Key::Numpad4] = VK_NUMPAD4;
+    m_fixedMappings[Key::Numpad5] = VK_NUMPAD5;
+    m_fixedMappings[Key::Numpad6] = VK_NUMPAD6;
+    m_fixedMappings[Key::Numpad7] = VK_NUMPAD7;
+    m_fixedMappings[Key::Numpad8] = VK_NUMPAD8;
+    m_fixedMappings[Key::Numpad9] = VK_NUMPAD9;
+    m_fixedMappings[Key::NumpadDivide] = VK_DIVIDE;
+    m_fixedMappings[Key::NumpadMultiply] = VK_MULTIPLY;
+    m_fixedMappings[Key::NumpadMinus] = VK_SUBTRACT;
+    m_fixedMappings[Key::NumpadPlus] = VK_ADD;
+    m_fixedMappings[Key::NumpadDecimal] = VK_DECIMAL;
+    m_fixedMappings[Key::NumpadEnter] = VK_RETURN;
+
+    // Get current keyboard layout
+    HKL layout = GetKeyboardLayout(0);
+
+    // Now scan the keyboard layout to find which physical keys produce which
+    // characters We'll scan common virtual key codes
+    for (WORD vk = 0; vk < 256; ++vk) {
+      wchar_t c = getCharacterForVirtualKey(vk, layout);
+      if (c == 0)
+        continue;
+
+      c = normalizeChar(c);
+
+      // Map letters A-Z
+      if (c >= L'a' && c <= L'z') {
+        Key key = static_cast<Key>(static_cast<uint16_t>(Key::A) + (c - L'a'));
+        if (m_keyToVirtualKey.find(key) == m_keyToVirtualKey.end()) {
+          m_keyToVirtualKey[key] = vk;
+        }
+      }
+      // Map numbers 0-9
+      else if (c >= L'0' && c <= L'9') {
+        Key key =
+            static_cast<Key>(static_cast<uint16_t>(Key::Num0) + (c - L'0'));
+        if (m_keyToVirtualKey.find(key) == m_keyToVirtualKey.end()) {
+          m_keyToVirtualKey[key] = vk;
+        }
+      }
+      // Map punctuation and special characters
+      else {
+        Key key = Key::Unknown;
+        switch (c) {
+        case L'`':
+          key = Key::Grave;
+          break;
+        case L'-':
+          key = Key::Minus;
+          break;
+        case L'=':
+          key = Key::Equal;
+          break;
+        case L'[':
+          key = Key::LeftBracket;
+          break;
+        case L']':
+          key = Key::RightBracket;
+          break;
+        case L'\\':
+          key = Key::Backslash;
+          break;
+        case L';':
+          key = Key::Semicolon;
+          break;
+        case L'\'':
+          key = Key::Apostrophe;
+          break;
+        case L',':
+          key = Key::Comma;
+          break;
+        case L'.':
+          key = Key::Period;
+          break;
+        case L'/':
+          key = Key::Slash;
+          break;
+        default:
+          break;
+        }
+        if (key != Key::Unknown &&
+            m_keyToVirtualKey.find(key) == m_keyToVirtualKey.end()) {
+          m_keyToVirtualKey[key] = vk;
+        }
+      }
+    }
+  }
+
+  std::unordered_map<Key, WORD> m_fixedMappings;
+  std::unordered_map<Key, WORD> m_keyToVirtualKey;
+};
 
 // Check if a virtual key code requires the Extended Key flag
 bool isExtendedKey(WORD vk) {
@@ -344,6 +286,8 @@ bool sendInputs(const std::vector<INPUT> &inputs) {
 } // namespace
 
 struct InputBackend::Impl {
+  KeyboardLayoutMapper layoutMapper;
+
   Impl() {}
 
   Capabilities capabilities() const {
@@ -363,7 +307,7 @@ struct InputBackend::Impl {
     std::vector<INPUT> inputs;
     addModifierInputs(inputs, mods, true);
 
-    WORD vk = keyToWinVK(key);
+    WORD vk = layoutMapper.getVirtualKey(key);
     if (vk != 0) {
       INPUT input = {0};
       input.type = INPUT_KEYBOARD;
@@ -378,7 +322,7 @@ struct InputBackend::Impl {
   bool keyUp(Key key, Mod mods) {
     std::vector<INPUT> inputs;
 
-    WORD vk = keyToWinVK(key);
+    WORD vk = layoutMapper.getVirtualKey(key);
     if (vk != 0) {
       INPUT input = {0};
       input.type = INPUT_KEYBOARD;
@@ -398,7 +342,7 @@ struct InputBackend::Impl {
     // Press modifiers
     addModifierInputs(inputs, mods, true);
 
-    WORD vk = keyToWinVK(key);
+    WORD vk = layoutMapper.getVirtualKey(key);
     if (vk != 0) {
       // Key down
       INPUT down = {0};

@@ -1,431 +1,257 @@
 // input_macos.mm
-// macOS Quartz backend for keyboard input injection (Objective-C++)
-
-#include "input.hpp"
 
 #ifdef __APPLE__
+#include "input.hpp"
 
 #include <ApplicationServices/ApplicationServices.h>
 #include <Carbon/Carbon.h> // For kVK_* virtual key codes
 #import <Foundation/Foundation.h>
 #include <codecvt>
 #include <locale>
+#include <unordered_map>
+#include <vector>
 
 namespace input {
 
 namespace {
 
-// Check if a key should be typed as a Unicode character instead of using virtual key codes.
-// This is a workaround for macOS where virtual key codes (like kVK_ANSI_A) are hardcoded
-// to physical positions on a US-QWERTY layout, ignoring the user's layout settings.
-//
-// NOTE: This approach is subject to change as it may have issues with complex layouts
-// (dead keys, ligatures, etc.). Feedback is welcome if certain layouts fail.
-bool shouldTypeAsCharacter(Key key) {
-  switch (key) {
-  // Letters should be typed as characters to respect keyboard layout
-  case Key::A:
-  case Key::B:
-  case Key::C:
-  case Key::D:
-  case Key::E:
-  case Key::F:
-  case Key::G:
-  case Key::H:
-  case Key::I:
-  case Key::J:
-  case Key::K:
-  case Key::L:
-  case Key::M:
-  case Key::N:
-  case Key::O:
-  case Key::P:
-  case Key::Q:
-  case Key::R:
-  case Key::S:
-  case Key::T:
-  case Key::U:
-  case Key::V:
-  case Key::W:
-  case Key::X:
-  case Key::Y:
-  case Key::Z:
-  // Numbers should be typed as characters to respect keyboard layout
-  case Key::Num0:
-  case Key::Num1:
-  case Key::Num2:
-  case Key::Num3:
-  case Key::Num4:
-  case Key::Num5:
-  case Key::Num6:
-  case Key::Num7:
-  case Key::Num8:
-  case Key::Num9:
-  // Punctuation should be typed as characters to respect keyboard layout
-  case Key::Grave:
-  case Key::Minus:
-  case Key::Equal:
-  case Key::LeftBracket:
-  case Key::RightBracket:
-  case Key::Backslash:
-  case Key::Semicolon:
-  case Key::Apostrophe:
-  case Key::Comma:
-  case Key::Period:
-  case Key::Slash:
-    return true;
-  default:
-    return false;
+// Translates a virtual key code and modifiers to a Unicode string using the current keyboard layout.
+// This queries the system to find out what character a physical key produces.
+std::u32string getCharacterForKeyCode(CGKeyCode keyCode, CGEventFlags flags) {
+  TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardLayoutInputSource();
+  if (!currentKeyboard) return U"";
+
+  CFDataRef layoutData = (CFDataRef)TISGetInputSourceProperty(
+      currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
+
+  if (!layoutData) {
+    CFRelease(currentKeyboard);
+    return U"";
   }
+
+  const UCKeyboardLayout *keyboardLayout =
+      (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
+
+  UInt32 deadKeyState = 0;
+  UniChar unicodeString[4];
+  UniCharCount actualStringLength;
+
+  // Convert CGEventFlags to Carbon modifiers
+  UInt32 modifiers = 0;
+  if (flags & kCGEventFlagMaskShift) modifiers |= shiftKey >> 8;
+  if (flags & kCGEventFlagMaskAlphaShift) modifiers |= alphaLock >> 8;
+  if (flags & kCGEventFlagMaskAlternate) modifiers |= optionKey >> 8;
+  if (flags & kCGEventFlagMaskControl) modifiers |= controlKey >> 8;
+  if (flags & kCGEventFlagMaskCommand) modifiers |= cmdKey >> 8;
+
+  OSStatus status = UCKeyTranslate(
+      keyboardLayout,
+      keyCode,
+      kUCKeyActionDown,
+      modifiers,
+      LMGetKbdType(),
+      kUCKeyTranslateNoDeadKeysBit,
+      &deadKeyState,
+      4,
+      &actualStringLength,
+      unicodeString
+  );
+
+  CFRelease(currentKeyboard);
+
+  if (status == noErr && actualStringLength > 0) {
+    std::u32string result;
+    for (UniCharCount i = 0; i < actualStringLength; ++i) {
+      result += (char32_t)unicodeString[i];
+    }
+    return result;
+  }
+
+  return U"";
 }
 
-// Convert Key enum to the character it should produce (lowercase, no modifiers)
-char32_t keyToCharacter(Key key) {
-  switch (key) {
-  case Key::A: return U'a';
-  case Key::B: return U'b';
-  case Key::C: return U'c';
-  case Key::D: return U'd';
-  case Key::E: return U'e';
-  case Key::F: return U'f';
-  case Key::G: return U'g';
-  case Key::H: return U'h';
-  case Key::I: return U'i';
-  case Key::J: return U'j';
-  case Key::K: return U'k';
-  case Key::L: return U'l';
-  case Key::M: return U'm';
-  case Key::N: return U'n';
-  case Key::O: return U'o';
-  case Key::P: return U'p';
-  case Key::Q: return U'q';
-  case Key::R: return U'r';
-  case Key::S: return U's';
-  case Key::T: return U't';
-  case Key::U: return U'u';
-  case Key::V: return U'v';
-  case Key::W: return U'w';
-  case Key::X: return U'x';
-  case Key::Y: return U'y';
-  case Key::Z: return U'z';
-  case Key::Num0: return U'0';
-  case Key::Num1: return U'1';
-  case Key::Num2: return U'2';
-  case Key::Num3: return U'3';
-  case Key::Num4: return U'4';
-  case Key::Num5: return U'5';
-  case Key::Num6: return U'6';
-  case Key::Num7: return U'7';
-  case Key::Num8: return U'8';
-  case Key::Num9: return U'9';
-  case Key::Grave: return U'`';
-  case Key::Minus: return U'-';
-  case Key::Equal: return U'=';
-  case Key::LeftBracket: return U'[';
-  case Key::RightBracket: return U']';
-  case Key::Backslash: return U'\\';
-  case Key::Semicolon: return U';';
-  case Key::Apostrophe: return U'\'';
-  case Key::Comma: return U',';
-  case Key::Period: return U'.';
-  case Key::Slash: return U'/';
-  case Key::Space: return U' ';
-  default: return 0;
-  }
-}
-
-// Apply modifiers to a character (e.g., Shift makes it uppercase)
-char32_t applyModifiersToCharacter(char32_t c, Mod mods) {
-  // Handle Shift modifier for letters
-  if (mods & Mod_Shift) {
-    if (c >= U'a' && c <= U'z') {
-      return c - U'a' + U'A';
-    }
-    // Handle shift for punctuation and numbers
-    switch (c) {
-    case U'`': return U'~';
-    case U'1': return U'!';
-    case U'2': return U'@';
-    case U'3': return U'#';
-    case U'4': return U'$';
-    case U'5': return U'%';
-    case U'6': return U'^';
-    case U'7': return U'&';
-    case U'8': return U'*';
-    case U'9': return U'(';
-    case U'0': return U')';
-    case U'-': return U'_';
-    case U'=': return U'+';
-    case U'[': return U'{';
-    case U']': return U'}';
-    case U'\\': return U'|';
-    case U';': return U':';
-    case U'\'': return U'"';
-    case U',': return U'<';
-    case U'.': return U'>';
-    case U'/': return U'?';
-    default: break;
-    }
+// Convert a lowercase character to uppercase using standard ASCII rules
+char32_t toUpperAscii(char32_t c) {
+  if (c >= U'a' && c <= U'z') {
+    return c - U'a' + U'A';
   }
   return c;
 }
 
-// Convert input::Key to macOS virtual key code (CGKeyCode)
-CGKeyCode keyToVirtualKeyCode(Key key) {
+// Helper to normalize characters for comparison (lowercase, no modifiers)
+char32_t normalizeChar(char32_t c) {
+  if (c >= U'A' && c <= U'Z') {
+    return c - U'A' + U'a';
+  }
+  return c;
+}
+
+// Build a mapping from our Key enum to macOS virtual key codes by scanning the keyboard layout
+class KeyboardLayoutMapper {
+public:
+  KeyboardLayoutMapper() {
+    buildMappings();
+  }
+
+  CGKeyCode getKeyCode(Key key) const {
+    // For non-character keys, return fixed mappings
+    auto it = m_fixedMappings.find(key);
+    if (it != m_fixedMappings.end()) {
+      return it->second;
+    }
+
+    // For character keys, use the dynamically built mapping
+    auto it2 = m_keyToVirtualKey.find(key);
+    if (it2 != m_keyToVirtualKey.end()) {
+      return it2->second;
+    }
+
+    return UINT16_MAX;
+  }
+
+private:
+  void buildMappings() {
+    // First, set up fixed mappings for non-character keys (these don't change with layout)
+    m_fixedMappings[Key::Enter] = kVK_Return;
+    m_fixedMappings[Key::Escape] = kVK_Escape;
+    m_fixedMappings[Key::Backspace] = kVK_Delete;
+    m_fixedMappings[Key::Tab] = kVK_Tab;
+    m_fixedMappings[Key::Space] = kVK_Space;
+    m_fixedMappings[Key::Delete] = kVK_ForwardDelete;
+    m_fixedMappings[Key::Insert] = kVK_Help;
+    m_fixedMappings[Key::Left] = kVK_LeftArrow;
+    m_fixedMappings[Key::Right] = kVK_RightArrow;
+    m_fixedMappings[Key::Up] = kVK_UpArrow;
+    m_fixedMappings[Key::Down] = kVK_DownArrow;
+    m_fixedMappings[Key::Home] = kVK_Home;
+    m_fixedMappings[Key::End] = kVK_End;
+    m_fixedMappings[Key::PageUp] = kVK_PageUp;
+    m_fixedMappings[Key::PageDown] = kVK_PageDown;
+    m_fixedMappings[Key::F1] = kVK_F1;
+    m_fixedMappings[Key::F2] = kVK_F2;
+    m_fixedMappings[Key::F3] = kVK_F3;
+    m_fixedMappings[Key::F4] = kVK_F4;
+    m_fixedMappings[Key::F5] = kVK_F5;
+    m_fixedMappings[Key::F6] = kVK_F6;
+    m_fixedMappings[Key::F7] = kVK_F7;
+    m_fixedMappings[Key::F8] = kVK_F8;
+    m_fixedMappings[Key::F9] = kVK_F9;
+    m_fixedMappings[Key::F10] = kVK_F10;
+    m_fixedMappings[Key::F11] = kVK_F11;
+    m_fixedMappings[Key::F12] = kVK_F12;
+    m_fixedMappings[Key::F13] = kVK_F13;
+    m_fixedMappings[Key::F14] = kVK_F14;
+    m_fixedMappings[Key::F15] = kVK_F15;
+    m_fixedMappings[Key::F16] = kVK_F16;
+    m_fixedMappings[Key::F17] = kVK_F17;
+    m_fixedMappings[Key::F18] = kVK_F18;
+    m_fixedMappings[Key::F19] = kVK_F19;
+    m_fixedMappings[Key::F20] = kVK_F20;
+    m_fixedMappings[Key::ShiftLeft] = kVK_Shift;
+    m_fixedMappings[Key::ShiftRight] = kVK_RightShift;
+    m_fixedMappings[Key::CtrlLeft] = kVK_Control;
+    m_fixedMappings[Key::CtrlRight] = kVK_RightControl;
+    m_fixedMappings[Key::AltLeft] = kVK_Option;
+    m_fixedMappings[Key::AltRight] = kVK_RightOption;
+    m_fixedMappings[Key::SuperLeft] = kVK_Command;
+    m_fixedMappings[Key::SuperRight] = kVK_RightCommand;
+    m_fixedMappings[Key::CapsLock] = kVK_CapsLock;
+    m_fixedMappings[Key::NumLock] = kVK_ANSI_KeypadClear;
+    m_fixedMappings[Key::PrintScreen] = kVK_F13;
+    m_fixedMappings[Key::ScrollLock] = kVK_ANSI_KeypadClear;
+    m_fixedMappings[Key::Pause] = kVK_F15;
+    m_fixedMappings[Key::Menu] = kVK_F4;
+    m_fixedMappings[Key::Mute] = kVK_Mute;
+    m_fixedMappings[Key::VolumeDown] = kVK_VolumeDown;
+    m_fixedMappings[Key::VolumeUp] = kVK_VolumeUp;
+    m_fixedMappings[Key::MediaPlayPause] = kVK_F8;
+    m_fixedMappings[Key::MediaNext] = kVK_F9;
+    m_fixedMappings[Key::MediaPrevious] = kVK_F7;
+    m_fixedMappings[Key::MediaStop] = kVK_F8;
+    m_fixedMappings[Key::Numpad0] = kVK_ANSI_Keypad0;
+    m_fixedMappings[Key::Numpad1] = kVK_ANSI_Keypad1;
+    m_fixedMappings[Key::Numpad2] = kVK_ANSI_Keypad2;
+    m_fixedMappings[Key::Numpad3] = kVK_ANSI_Keypad3;
+    m_fixedMappings[Key::Numpad4] = kVK_ANSI_Keypad4;
+    m_fixedMappings[Key::Numpad5] = kVK_ANSI_Keypad5;
+    m_fixedMappings[Key::Numpad6] = kVK_ANSI_Keypad6;
+    m_fixedMappings[Key::Numpad7] = kVK_ANSI_Keypad7;
+    m_fixedMappings[Key::Numpad8] = kVK_ANSI_Keypad8;
+    m_fixedMappings[Key::Numpad9] = kVK_ANSI_Keypad9;
+    m_fixedMappings[Key::NumpadDivide] = kVK_ANSI_KeypadDivide;
+    m_fixedMappings[Key::NumpadMultiply] = kVK_ANSI_KeypadMultiply;
+    m_fixedMappings[Key::NumpadMinus] = kVK_ANSI_KeypadMinus;
+    m_fixedMappings[Key::NumpadPlus] = kVK_ANSI_KeypadPlus;
+    m_fixedMappings[Key::NumpadEnter] = kVK_ANSI_KeypadEnter;
+    m_fixedMappings[Key::NumpadDecimal] = kVK_ANSI_KeypadDecimal;
+
+    // Now scan the keyboard layout to find which physical keys produce which characters
+    // We'll scan all possible virtual key codes (0-127 is the typical range)
+    for (CGKeyCode vk = 0; vk < 128; ++vk) {
+      // Get the character this key produces without modifiers
+      std::u32string chars = getCharacterForKeyCode(vk, 0);
+      if (chars.empty()) continue;
+
+      char32_t c = normalizeChar(chars[0]);
+
+      // Map letters A-Z
+      if (c >= U'a' && c <= U'z') {
+        Key key = static_cast<Key>(static_cast<uint16_t>(Key::A) + (c - U'a'));
+        if (m_keyToVirtualKey.find(key) == m_keyToVirtualKey.end()) {
+          m_keyToVirtualKey[key] = vk;
+        }
+      }
+      // Map numbers 0-9
+      else if (c >= U'0' && c <= U'9') {
+        Key key = static_cast<Key>(static_cast<uint16_t>(Key::Num0) + (c - U'0'));
+        if (m_keyToVirtualKey.find(key) == m_keyToVirtualKey.end()) {
+          m_keyToVirtualKey[key] = vk;
+        }
+      }
+      // Map punctuation and special characters
+      else {
+        Key key = Key::Unknown;
+        switch (c) {
+          case U'`': key = Key::Grave; break;
+          case U'-': key = Key::Minus; break;
+          case U'=': key = Key::Equal; break;
+          case U'[': key = Key::LeftBracket; break;
+          case U']': key = Key::RightBracket; break;
+          case U'\\': key = Key::Backslash; break;
+          case U';': key = Key::Semicolon; break;
+          case U'\'': key = Key::Apostrophe; break;
+          case U',': key = Key::Comma; break;
+          case U'.': key = Key::Period; break;
+          case U'/': key = Key::Slash; break;
+          default: break;
+        }
+        if (key != Key::Unknown && m_keyToVirtualKey.find(key) == m_keyToVirtualKey.end()) {
+          m_keyToVirtualKey[key] = vk;
+        }
+      }
+    }
+  }
+
+  std::unordered_map<Key, CGKeyCode> m_fixedMappings;
+  std::unordered_map<Key, CGKeyCode> m_keyToVirtualKey;
+};
+
+// Check if a key should be translated to a character instead of just sending the virtual key code.
+bool shouldTranslateToCharacter(Key key) {
   switch (key) {
-  // Letters
-  case Key::A:
-    return kVK_ANSI_A;
-  case Key::B:
-    return kVK_ANSI_B;
-  case Key::C:
-    return kVK_ANSI_C;
-  case Key::D:
-    return kVK_ANSI_D;
-  case Key::E:
-    return kVK_ANSI_E;
-  case Key::F:
-    return kVK_ANSI_F;
-  case Key::G:
-    return kVK_ANSI_G;
-  case Key::H:
-    return kVK_ANSI_H;
-  case Key::I:
-    return kVK_ANSI_I;
-  case Key::J:
-    return kVK_ANSI_J;
-  case Key::K:
-    return kVK_ANSI_K;
-  case Key::L:
-    return kVK_ANSI_L;
-  case Key::M:
-    return kVK_ANSI_M;
-  case Key::N:
-    return kVK_ANSI_N;
-  case Key::O:
-    return kVK_ANSI_O;
-  case Key::P:
-    return kVK_ANSI_P;
-  case Key::Q:
-    return kVK_ANSI_Q;
-  case Key::R:
-    return kVK_ANSI_R;
-  case Key::S:
-    return kVK_ANSI_S;
-  case Key::T:
-    return kVK_ANSI_T;
-  case Key::U:
-    return kVK_ANSI_U;
-  case Key::V:
-    return kVK_ANSI_V;
-  case Key::W:
-    return kVK_ANSI_W;
-  case Key::X:
-    return kVK_ANSI_X;
-  case Key::Y:
-    return kVK_ANSI_Y;
-  case Key::Z:
-    return kVK_ANSI_Z;
-  // Numbers
-  case Key::Num0:
-    return kVK_ANSI_0;
-  case Key::Num1:
-    return kVK_ANSI_1;
-  case Key::Num2:
-    return kVK_ANSI_2;
-  case Key::Num3:
-    return kVK_ANSI_3;
-  case Key::Num4:
-    return kVK_ANSI_4;
-  case Key::Num5:
-    return kVK_ANSI_5;
-  case Key::Num6:
-    return kVK_ANSI_6;
-  case Key::Num7:
-    return kVK_ANSI_7;
-  case Key::Num8:
-    return kVK_ANSI_8;
-  case Key::Num9:
-    return kVK_ANSI_9;
-  // Punctuation
-  case Key::Grave:
-    return kVK_ANSI_Grave;
-  case Key::Minus:
-    return kVK_ANSI_Minus;
-  case Key::Equal:
-    return kVK_ANSI_Equal;
-  case Key::LeftBracket:
-    return kVK_ANSI_LeftBracket;
-  case Key::RightBracket:
-    return kVK_ANSI_RightBracket;
-  case Key::Backslash:
-    return kVK_ANSI_Backslash;
-  case Key::Semicolon:
-    return kVK_ANSI_Semicolon;
-  case Key::Apostrophe:
-    return kVK_ANSI_Quote;
-  case Key::Comma:
-    return kVK_ANSI_Comma;
-  case Key::Period:
-    return kVK_ANSI_Period;
-  case Key::Slash:
-    return kVK_ANSI_Slash;
-  // Numpad
-  case Key::Numpad0:
-    return kVK_ANSI_Keypad0;
-  case Key::Numpad1:
-    return kVK_ANSI_Keypad1;
-  case Key::Numpad2:
-    return kVK_ANSI_Keypad2;
-  case Key::Numpad3:
-    return kVK_ANSI_Keypad3;
-  case Key::Numpad4:
-    return kVK_ANSI_Keypad4;
-  case Key::Numpad5:
-    return kVK_ANSI_Keypad5;
-  case Key::Numpad6:
-    return kVK_ANSI_Keypad6;
-  case Key::Numpad7:
-    return kVK_ANSI_Keypad7;
-  case Key::Numpad8:
-    return kVK_ANSI_Keypad8;
-  case Key::Numpad9:
-    return kVK_ANSI_Keypad9;
-  case Key::NumpadDivide:
-    return kVK_ANSI_KeypadDivide;
-  case Key::NumpadMultiply:
-    return kVK_ANSI_KeypadMultiply;
-  case Key::NumpadMinus:
-    return kVK_ANSI_KeypadMinus;
-  case Key::NumpadPlus:
-    return kVK_ANSI_KeypadPlus;
-  case Key::NumpadEnter:
-    return kVK_ANSI_KeypadEnter;
-  case Key::NumpadDecimal:
-    return kVK_ANSI_KeypadDecimal;
-  // Control keys
-  case Key::Enter:
-    return kVK_Return;
-  case Key::Escape:
-    return kVK_Escape;
-  case Key::Backspace:
-    return kVK_Delete;
-  case Key::Tab:
-    return kVK_Tab;
-  case Key::Space:
-    return kVK_Space;
-  case Key::Delete:
-    return kVK_ForwardDelete;
-  case Key::Insert:
-    return kVK_Help;
-  // Navigation
-  case Key::Left:
-    return kVK_LeftArrow;
-  case Key::Right:
-    return kVK_RightArrow;
-  case Key::Up:
-    return kVK_UpArrow;
-  case Key::Down:
-    return kVK_DownArrow;
-  case Key::Home:
-    return kVK_Home;
-  case Key::End:
-    return kVK_End;
-  case Key::PageUp:
-    return kVK_PageUp;
-  case Key::PageDown:
-    return kVK_PageDown;
-  // Function keys
-  case Key::F1:
-    return kVK_F1;
-  case Key::F2:
-    return kVK_F2;
-  case Key::F3:
-    return kVK_F3;
-  case Key::F4:
-    return kVK_F4;
-  case Key::F5:
-    return kVK_F5;
-  case Key::F6:
-    return kVK_F6;
-  case Key::F7:
-    return kVK_F7;
-  case Key::F8:
-    return kVK_F8;
-  case Key::F9:
-    return kVK_F9;
-  case Key::F10:
-    return kVK_F10;
-  case Key::F11:
-    return kVK_F11;
-  case Key::F12:
-    return kVK_F12;
-  case Key::F13:
-    return kVK_F13;
-  case Key::F14:
-    return kVK_F14;
-  case Key::F15:
-    return kVK_F15;
-  case Key::F16:
-    return kVK_F16;
-  case Key::F17:
-    return kVK_F17;
-  case Key::F18:
-    return kVK_F18;
-  case Key::F19:
-    return kVK_F19;
-  case Key::F20:
-    return kVK_F20;
-  // Modifiers as keys
-  case Key::ShiftLeft:
-    return kVK_Shift;
-  case Key::ShiftRight:
-    return kVK_RightShift;
-  case Key::CtrlLeft:
-    return kVK_Control;
-  case Key::CtrlRight:
-    return kVK_RightControl;
-  case Key::AltLeft:
-    return kVK_Option;
-  case Key::AltRight:
-    return kVK_RightOption;
-  case Key::SuperLeft:
-    return kVK_Command;
-  case Key::SuperRight:
-    return kVK_RightCommand;
-  // Lock keys
-  case Key::CapsLock:
-   return kVK_CapsLock;
- case Key::NumLock:
-   return kVK_ANSI_KeypadClear;
- // Special keys
- case Key::PrintScreen:
-   return kVK_F13;
- case Key::ScrollLock:
-   return kVK_ANSI_KeypadClear;
- case Key::Pause:
-   return kVK_F15;
- case Key::Menu:
-   return kVK_F4;
- case Key::Mute:
-   return kVK_Mute;
- case Key::VolumeDown:
-   return kVK_VolumeDown;
- case Key::VolumeUp:
-   return kVK_VolumeUp;
- case Key::MediaPlayPause:
-   return kVK_F8;
- case Key::MediaNext:
-   return kVK_F9;
- case Key::MediaPrevious:
-   return kVK_F7;
- case Key::MediaStop:
-   return kVK_F8;
- case Key::CharacterInput:
- case Key::BackspaceDelete:
- case Key::Unknown:
- default:
-   return UINT16_MAX;
+  case Key::A: case Key::B: case Key::C: case Key::D: case Key::E: case Key::F:
+  case Key::G: case Key::H: case Key::I: case Key::J: case Key::K: case Key::L:
+  case Key::M: case Key::N: case Key::O: case Key::P: case Key::Q: case Key::R:
+  case Key::S: case Key::T: case Key::U: case Key::V: case Key::W: case Key::X:
+  case Key::Y: case Key::Z:
+  case Key::Num0: case Key::Num1: case Key::Num2: case Key::Num3: case Key::Num4:
+  case Key::Num5: case Key::Num6: case Key::Num7: case Key::Num8: case Key::Num9:
+  case Key::Grave: case Key::Minus: case Key::Equal: case Key::LeftBracket:
+  case Key::RightBracket: case Key::Backslash: case Key::Semicolon:
+  case Key::Apostrophe: case Key::Comma: case Key::Period: case Key::Slash:
+    return true;
+  default:
+    return false;
   }
 }
 
@@ -534,8 +360,11 @@ std::u32string utf8ToUtf32(const std::string &utf8) {
 // Platform-specific implementation structure
 struct InputBackend::Impl {
   bool permissionGranted{false};
+  KeyboardLayoutMapper layoutMapper;
 
-  Impl() { permissionGranted = checkAccessibilityPermission(); }
+  Impl() {
+    permissionGranted = checkAccessibilityPermission();
+  }
 
   Capabilities capabilities() const {
     Capabilities caps;
@@ -554,18 +383,7 @@ struct InputBackend::Impl {
   }
 
   bool keyDown(Key key, Mod mods) {
-    // For printable characters, use Unicode input to respect keyboard layout
-    if (shouldTypeAsCharacter(key)) {
-      // For keyDown, we can't really do a "half type", so we'll use virtual key code
-      // but this is mainly for toggle modes. Normal typing should use tap().
-      CGKeyCode keyCode = keyToVirtualKeyCode(key);
-      if (keyCode == UINT16_MAX) {
-        return false;
-      }
-      return postKeyEvent(keyCode, true, modsToCGFlags(mods));
-    }
-
-    CGKeyCode keyCode = keyToVirtualKeyCode(key);
+    CGKeyCode keyCode = layoutMapper.getKeyCode(key);
     if (keyCode == UINT16_MAX) {
       return false;
     }
@@ -573,17 +391,7 @@ struct InputBackend::Impl {
   }
 
   bool keyUp(Key key, Mod mods) {
-    // For printable characters, use Unicode input to respect keyboard layout
-    if (shouldTypeAsCharacter(key)) {
-      // For keyUp, we can't really do a "half type", so we'll use virtual key code
-      CGKeyCode keyCode = keyToVirtualKeyCode(key);
-      if (keyCode == UINT16_MAX) {
-        return false;
-      }
-      return postKeyEvent(keyCode, false, modsToCGFlags(mods));
-    }
-
-    CGKeyCode keyCode = keyToVirtualKeyCode(key);
+    CGKeyCode keyCode = layoutMapper.getKeyCode(key);
     if (keyCode == UINT16_MAX) {
       return false;
     }
@@ -591,18 +399,22 @@ struct InputBackend::Impl {
   }
 
   bool tap(Key key, Mod mods) {
-    // For printable characters, use Unicode input workaround to ensure the correct
-    // character is typed regardless of the user's macOS keyboard layout.
-    if (shouldTypeAsCharacter(key)) {
-      char32_t c = keyToCharacter(key);
-      if (c == 0) {
-        return false;
+    CGKeyCode vk = layoutMapper.getKeyCode(key);
+    if (vk == UINT16_MAX) return false;
+
+    // Use UCKeyboardTranslate to determine what character should be produced
+    // with the current keyboard layout and modifiers.
+    // We only use translation for simple character input (no Command/Control)
+    // to preserve keyboard shortcuts, but allow Alt/Option for special characters.
+    bool hasShortcutMods = (mods & (Mod_Ctrl | Mod_Super));
+    if (shouldTranslateToCharacter(key) && !hasShortcutMods) {
+      std::u32string translated = getCharacterForKeyCode(vk, modsToCGFlags(mods));
+      if (!translated.empty()) {
+        return typeText(translated);
       }
-      // Apply modifiers (like Shift) to the character
-      c = applyModifiersToCharacter(c, mods);
-      return typeCharacter(c);
     }
 
+    // If no character translation is available or appropriate, fallback to virtual key codes
     return keyDown(key, mods) && keyUp(key, mods);
   }
 
