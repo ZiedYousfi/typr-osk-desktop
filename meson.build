@@ -1,7 +1,6 @@
 project(
   'typr-osk-desktop',
   'cpp',
-  'objcpp',
   version: '0.0.1',
   default_options: [
     'cpp_std=c++20',
@@ -32,6 +31,7 @@ inc_dirs = include_directories('src')
 deps = [qt6_dep]
 
 if host_machine.system() == 'darwin'
+  add_languages('objcpp')
   sources += 'src/input/input_macos.mm'
   sources += 'src/ui/ui_macos.mm'
 
