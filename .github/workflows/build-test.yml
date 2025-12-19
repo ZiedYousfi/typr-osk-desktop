@@ -40,10 +40,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: choco install pkgconfiglite
 
-      - name: Remove Strawberry Perl (Windows)
+      - name: Clean PATH (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch 'Strawberry' }) -join ';'
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch 'Strawberry' -and $_ -notmatch 'Git' -and $_ -notmatch 'mingw' }) -join ';'
           "PATH=$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup MSVC (Windows)
@@ -66,7 +66,8 @@ jobs:
           CC: ${{ matrix.compiler == 'clang' && 'clang' || '' }}
           CXX: ${{ matrix.compiler == 'clang' && 'clang++' || '' }}
           PKG_CONFIG: pkg-config
-          PKG_CONFIG_PATH: conan-build
+          PKG_CONFIG_PATH: ${{ github.workspace }}/conan-build
+          CMAKE_PREFIX_PATH: ${{ github.workspace }}/conan-build
         run: |
           meson setup build --native-file conan-build/conan_meson_native.ini --buildtype release
 

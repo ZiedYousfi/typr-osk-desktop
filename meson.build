@@ -7,7 +7,16 @@ project(
   ],
 )
 
-qt6_dep = dependency('qt6', modules: ['Core', 'Gui', 'Widgets'])
+if host_machine.system() == 'windows'
+  # Use CMake method on Windows to avoid path mangling issues with pkg-config
+  qt6_dep = dependency(
+    'qt6',
+    modules: ['Core', 'Gui', 'Widgets'],
+    method: 'cmake',
+  )
+else
+  qt6_dep = dependency('qt6', modules: ['Core', 'Gui', 'Widgets'])
+endif
 
 # Header files
 headers = [
