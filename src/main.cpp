@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
 
   // --- Row 2: Caps & ASDF ---
   listBuilder.nextRow();
-  listBuilder.addKey(backend::Key::CapsLock, kUnit1_75, true);
+  listBuilder.addKey(backend::Key::CapsLock, kUnit1_75, 1.0F, true);
   listBuilder.addKey(backend::Key::A);
   listBuilder.addKey(backend::Key::S);
   listBuilder.addKey(backend::Key::D);
@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
 
   // --- Row 3: Shift & ZXCV ---
   listBuilder.nextRow();
-  listBuilder.addKey(backend::Key::ShiftLeft, kUnit2_5, true);
+  listBuilder.addKey(backend::Key::ShiftLeft, kUnit2_5, 1.0F, true);
   listBuilder.addKey(backend::Key::Z);
   listBuilder.addKey(backend::Key::X);
   listBuilder.addKey(backend::Key::C);
@@ -109,16 +109,16 @@ int main(int argc, char **argv) {
   listBuilder.addKey(backend::Key::Comma);
   listBuilder.addKey(backend::Key::Period);
   listBuilder.addKey(backend::Key::Slash);
-  listBuilder.addKey(backend::Key::ShiftRight, kUnit2_5, true);
+  listBuilder.addKey(backend::Key::ShiftRight, kUnit2_5, 1.0F, true);
 
   // --- Row 4: Modifiers & Space ---
   listBuilder.nextRow();
-  listBuilder.addKey(backend::Key::CtrlLeft, kUnit1_5, true);
-  listBuilder.addKey(backend::Key::AltLeft, kUnit1_5, true);
-  listBuilder.addKey(backend::Key::SuperLeft, kUnit1_5, true);
+  listBuilder.addKey(backend::Key::CtrlLeft, kUnit1_5, 1.0F, true);
+  listBuilder.addKey(backend::Key::AltLeft, kUnit1_5, 1.0F, true);
+  listBuilder.addKey(backend::Key::SuperLeft, kUnit1_5, 1.0F, true);
   listBuilder.addKey(backend::Key::Space, kUnit6_25);
-  listBuilder.addKey(backend::Key::SuperRight, kUnit1_5, true);
-  listBuilder.addKey(backend::Key::AltRight, kUnit1_5, true);
+  listBuilder.addKey(backend::Key::SuperRight, kUnit1_5, 1.0F, true);
+  listBuilder.addKey(backend::Key::AltRight, kUnit1_5, 1.0F, true);
 
   listBuilder.addKey(backend::Key::Left);
   listBuilder.addKey(backend::Key::Up);

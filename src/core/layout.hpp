@@ -74,11 +74,14 @@ public:
    * @param widthAsUnit The relative width of the key.
    * @param heightAsUnit The relative height of the key.
    * @param toggle Whether the key is in toggle mode.
+   * @param holdThresholdMs How many milliseconds the user must hold the
+   * button before it is considered held and a keyDown is sent (default: 300).
    * @return A constructed Layout::Element.
    */
   [[nodiscard]] Element addKey(backend::Key key, int row, int column,
                                float widthAsUnit = 1.0F,
-                               float heightAsUnit = 1.0F, bool toggle = false);
+                               float heightAsUnit = 1.0F, bool toggle = false,
+                               int holdThresholdMs = 300);
 
 private:
   backend::InputBackend *backend_;
@@ -96,11 +99,29 @@ public:
 
   /**
    * @brief Adds a key to the current row and advances the column.
+   *
+   * Two overloads are provided for convenience:
+   *  - addKey(key, width, height, toggle, holdThresholdMs)
+   *  - addKey(key, width, toggle, holdThresholdMs)  // height defaults to 1.0
+   *
+   * @param holdThresholdMs How many milliseconds the user must hold the
+   * button before the key is considered held (default: 300).
    */
   void addKey(backend::Key key, float widthAsUnit = 1.0F,
-              float heightAsUnit = 1.0F, bool toggle = false) {
+              float heightAsUnit = 1.0F, bool toggle = false,
+              int holdThresholdMs = 300) {
     elements_.push_back(builder_.addKey(key, currentRow_, currentCol_++,
-                                        widthAsUnit, heightAsUnit, toggle));
+                                        widthAsUnit, heightAsUnit, toggle,
+                                        holdThresholdMs));
+  }
+
+  // Convenience overload: allow passing 'toggle' as the third parameter
+  // (e.g., addKey(key, width, true) to make the key toggle on click).
+  void addKey(backend::Key key, float widthAsUnit, bool toggle,
+              int holdThresholdMs = 300) {
+    elements_.push_back(builder_.addKey(key, currentRow_, currentCol_++,
+                                        widthAsUnit, 1.0F, toggle,
+                                        holdThresholdMs));
   }
 
   /**

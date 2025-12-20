@@ -5,7 +5,9 @@
 
 #include <QAction>
 #include <QDebug>
+#include <QObject>
 #include <QString>
+#include <QTimer>
 #include <functional>
 
 class QAction;
@@ -70,11 +72,49 @@ public:
   // Release the key
   bool pressUp();
 
+  // -----------------------
+  // Per-key hold threshold
+  // -----------------------
+
+  /**
+   * @brief Set how many milliseconds the user must hold the button before we
+   * send a keyDown for the key. If the user releases before this threshold the
+   * key will be treated as a tap.
+   *
+   * Example: a default of 300 ms means short presses are interpreted as taps
+   * (keyDown+keyUp on release), while holding longer than 300 ms will send a
+   * single keyDown when the threshold is crossed and a keyUp on release.
+   */
+  void setHoldThresholdMs(int ms);
+  [[nodiscard]] int holdThresholdMs() const;
+
 private:
   /**
    * @brief Internal handler for button trigger events (clicks)
+   *
+   * Note: by default Input uses native hold semantics (keyDown on press /
+   * keyUp on release). The class listens for press/release to support
+   * native-hold behaviour (so the OS can manage repeat). The
+   * QAction::triggered signal is only connected for toggle-mode or for
+   * explicit programmatic triggers (e.g., shortcuts) and is not used for
+   * normal mouse click handling to avoid duplicate event handling.
    */
   void onTriggered();
+
+  // Internal handlers for press / release lifecycle
+  void onPressed();
+  void onReleased();
+  void onToggled(bool checked); // QAction toggled handler (toggle-mode keys)
+
+  // Called when the hold threshold has been reached (start repeating)
+  void onHoldTimeout();
+
+  // (manual auto-repeat removed; hold threshold now controls when keyDown is
+  // sent)
+
+  // Helper to disconnect and stop timers/connections. Used during move and
+  // destruction.
+  void tearDownConnections();
 
   backend::Key key_;
   ui::Widget::RightClickableToolButton *button_;
@@ -85,6 +125,32 @@ private:
   bool isToggled_{false};
   KeyCallback onKeyPressed_;
   KeyCallback onKeyReleased_;
+
+  // Hold threshold configuration and transient state
+  // Default is 300 ms before sending keyDown; short presses are taps.
+  int holdThresholdMs_{
+      300}; // milliseconds; threshold before sending keyDown (default: 300 ms)
+
+  // Transient state
+  bool isPressed_{false}; // true while mouse button is down
+  bool isHeld_{
+      false}; // true when holdThreshold has elapsed and keyDown has been sent
+
+  // Timer used to detect the hold threshold; parented to button_
+  QTimer *holdTimer_{nullptr};
+
+  // Fallback repeat timer: used only if the backend does not provide native
+  // autorepeat when a physical-like keyDown is injected. This is private and
+  // controlled internally; default repeat interval is 80 ms.
+  QTimer *repeatTimer_{nullptr};
+  QMetaObject::Connection repeatTimerConnection_;
+  int repeatIntervalMs_{80};
+
+  // Stored connections so move / reattachment can disconnect/reconnect safely
+  QMetaObject::Connection pressedConnection_;
+  QMetaObject::Connection releasedConnection_;
+  QMetaObject::Connection actionToggledConnection_;
+  QMetaObject::Connection holdTimerConnection_;
 };
 
 } // namespace core

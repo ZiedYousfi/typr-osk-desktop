@@ -10,6 +10,10 @@
 #include <locale>
 #include <unordered_map>
 #include <vector>
+#include <QDebug>
+#include <QString>
+#include <cstdio>
+#include <cstdlib>
 
 namespace backend {
 
@@ -70,13 +74,47 @@ std::u32string getCharacterForKeyCode(CGKeyCode keyCode, CGEventFlags flags) {
   return U"";
 }
 
-// Convert a lowercase character to uppercase using standard ASCII rules
-char32_t toUpperAscii(char32_t c) {
-  if (c >= U'a' && c <= U'z') {
-    return c - U'a' + U'A';
-  }
-  return c;
+// Debug helper utilities
+// Debugging helper: enable backend debug logs with env var TYPR_OSK_DEBUG_BACKEND
+static bool debugBackendEnabled() {
+  static bool enabled = []() {
+    const char *env = std::getenv("TYPR_OSK_DEBUG_BACKEND");
+    return env && env[0] != '\0';
+  }();
+  return enabled;
 }
+
+static QString modsToString(Mod mods) {
+  QString s;
+  if (mods & Mod_Shift) s += "Shift|";
+  if (mods & Mod_Ctrl) s += "Ctrl|";
+  if (mods & Mod_Alt) s += "Alt|";
+  if (mods & Mod_Super) s += "Super|";
+  if (s.isEmpty()) return QStringLiteral("None");
+  s.chop(1);
+  return s;
+}
+
+// Small helper for debug logging: produce a printable (ASCII/escaped) preview
+static std::string debugPreviewFromUtf32(const std::u32string &s) {
+  std::string out;
+  for (char32_t cp : s) {
+    if (cp <= 0x7F && cp >= 0x20) {
+      out.push_back(static_cast<char>(cp));
+    } else if (cp == U'\n') {
+      out += "\\n";
+    } else {
+      char buf[16];
+      snprintf(buf, sizeof(buf), "\\u%04x", (unsigned)cp);
+      out += buf;
+    }
+    if (out.size() > 64) { out += "..."; break; }
+  }
+  if (out.empty()) out = "";
+  return out;
+}
+
+// logTypeText removed - use unconditional logging elsewhere
 
 // Helper to normalize characters for comparison (lowercase, no modifiers)
 char32_t normalizeChar(char32_t c) {
@@ -364,6 +402,9 @@ struct InputBackend::Impl {
 
   Impl() {
     permissionGranted = checkAccessibilityPermission();
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::macos] permissionGranted:" << permissionGranted;
+    }
   }
 
   Capabilities capabilities() const {
@@ -384,23 +425,165 @@ struct InputBackend::Impl {
 
   bool keyDown(Key key, Mod mods) {
     CGKeyCode keyCode = layoutMapper.getKeyCode(key);
+    qDebug() << "[backend::macos] keyDown(start):"
+             << QString::fromStdString(keyToString(key))
+             << "mappedVK:" << (keyCode == UINT16_MAX ? QStringLiteral("<none>") : QString::number(keyCode))
+             << "mods:" << modsToString(mods);
     if (keyCode == UINT16_MAX) {
+      qDebug() << "[backend::macos] keyDown: aborting (no mapping for)"
+               << QString::fromStdString(keyToString(key));
       return false;
     }
-    return postKeyEvent(keyCode, true, modsToCGFlags(mods));
+
+    // Helper to attempt a left-preferring modifier keycode (fallback to right)
+    auto getModVK = [&](Key leftKey, Key rightKey) -> CGKeyCode {
+      CGKeyCode mk = layoutMapper.getKeyCode(leftKey);
+      if (mk != UINT16_MAX) return mk;
+      return layoutMapper.getKeyCode(rightKey);
+    };
+
+    bool ok = true;
+
+    // Press modifiers physically (Shift, Ctrl, Alt, Super)
+    if (mods & Mod_Shift) {
+      CGKeyCode mk = getModVK(Key::ShiftLeft, Key::ShiftRight);
+      if (mk != UINT16_MAX) {
+        bool r = postKeyEvent(mk, true, 0);
+        qDebug() << "[backend::macos] keyDown: press Shift vk:" << mk << "result:" << r;
+        ok = r && ok;
+      } else {
+        qDebug() << "[backend::macos] keyDown: Shift mapping not found";
+      }
+    }
+    if (mods & Mod_Ctrl) {
+      CGKeyCode mk = getModVK(Key::CtrlLeft, Key::CtrlRight);
+      if (mk != UINT16_MAX) {
+        bool r = postKeyEvent(mk, true, 0);
+        qDebug() << "[backend::macos] keyDown: press Ctrl vk:" << mk << "result:" << r;
+        ok = r && ok;
+      } else {
+        qDebug() << "[backend::macos] keyDown: Ctrl mapping not found";
+      }
+    }
+    if (mods & Mod_Alt) {
+      CGKeyCode mk = getModVK(Key::AltLeft, Key::AltRight);
+      if (mk != UINT16_MAX) {
+        bool r = postKeyEvent(mk, true, 0);
+        qDebug() << "[backend::macos] keyDown: press Alt vk:" << mk << "result:" << r;
+        ok = r && ok;
+      } else {
+        qDebug() << "[backend::macos] keyDown: Alt mapping not found";
+      }
+    }
+    if (mods & Mod_Super) {
+      CGKeyCode mk = getModVK(Key::SuperLeft, Key::SuperRight);
+      if (mk != UINT16_MAX) {
+        bool r = postKeyEvent(mk, true, 0);
+        qDebug() << "[backend::macos] keyDown: press Super vk:" << mk << "result:" << r;
+        ok = r && ok;
+      } else {
+        qDebug() << "[backend::macos] keyDown: Super mapping not found";
+      }
+    }
+
+    qDebug() << "[backend::macos] keyDown: pressing main key"
+             << QString::fromStdString(keyToString(key))
+             << "keyCode:" << keyCode
+             << "mods:" << modsToString(mods);
+
+    bool r_main = postKeyEvent(keyCode, true, 0);
+    qDebug() << "[backend::macos] keyDown: main key post result:" << r_main;
+    ok = r_main && ok;
+    qDebug() << "[backend::macos] keyDown: overall result:" << ok;
+    return ok;
   }
 
   bool keyUp(Key key, Mod mods) {
     CGKeyCode keyCode = layoutMapper.getKeyCode(key);
+    qDebug() << "[backend::macos] keyUp(start):"
+             << QString::fromStdString(keyToString(key))
+             << "mappedVK:" << (keyCode == UINT16_MAX ? QStringLiteral("<none>") : QString::number(keyCode))
+             << "mods:" << modsToString(mods);
     if (keyCode == UINT16_MAX) {
+      qDebug() << "[backend::macos] keyUp: aborting (no mapping for)"
+               << QString::fromStdString(keyToString(key));
       return false;
     }
-    return postKeyEvent(keyCode, false, modsToCGFlags(mods));
+
+    // Helper to attempt a left-preferring modifier keycode (fallback to right)
+    auto getModVK = [&](Key leftKey, Key rightKey) -> CGKeyCode {
+      CGKeyCode mk = layoutMapper.getKeyCode(leftKey);
+      if (mk != UINT16_MAX) return mk;
+      return layoutMapper.getKeyCode(rightKey);
+    };
+
+    bool ok = true;
+
+    // Release main key first
+    ok = postKeyEvent(keyCode, false, 0) && ok;
+
+    // Release modifiers (Shift, Ctrl, Alt, Super)
+    if (mods & Mod_Shift) {
+      CGKeyCode mk = getModVK(Key::ShiftLeft, Key::ShiftRight);
+      if (mk != UINT16_MAX) {
+        if (debugBackendEnabled()) {
+          qDebug() << "[backend::macos] keyUp: releasing Shift vk:" << mk;
+        }
+        ok = postKeyEvent(mk, false, 0) && ok;
+      }
+    }
+    if (mods & Mod_Ctrl) {
+      CGKeyCode mk = getModVK(Key::CtrlLeft, Key::CtrlRight);
+      if (mk != UINT16_MAX) {
+        if (debugBackendEnabled()) {
+          qDebug() << "[backend::macos] keyUp: releasing Ctrl vk:" << mk;
+        }
+        ok = postKeyEvent(mk, false, 0) && ok;
+      }
+    }
+    if (mods & Mod_Alt) {
+      CGKeyCode mk = getModVK(Key::AltLeft, Key::AltRight);
+      if (mk != UINT16_MAX) {
+        if (debugBackendEnabled()) {
+          qDebug() << "[backend::macos] keyUp: releasing Alt vk:" << mk;
+        }
+        ok = postKeyEvent(mk, false, 0) && ok;
+      }
+    }
+    if (mods & Mod_Super) {
+      CGKeyCode mk = getModVK(Key::SuperLeft, Key::SuperRight);
+      if (mk != UINT16_MAX) {
+        if (debugBackendEnabled()) {
+          qDebug() << "[backend::macos] keyUp: releasing Super vk:" << mk;
+        }
+        ok = postKeyEvent(mk, false, 0) && ok;
+      }
+    }
+
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::macos] keyUp: main key"
+               << QString::fromStdString(keyToString(key))
+               << "keyCode:" << keyCode
+               << "mods:" << modsToString(mods);
+    }
+
+    return ok;
   }
 
   bool tap(Key key, Mod mods) {
     CGKeyCode vk = layoutMapper.getKeyCode(key);
-    if (vk == UINT16_MAX) return false;
+    if (vk == UINT16_MAX) {
+      if (debugBackendEnabled()) {
+        qDebug() << "[backend::macos] tap: no mapping for"
+                 << QString::fromStdString(keyToString(key));
+      }
+      return false;
+    }
+
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::macos] tap:" << QString::fromStdString(keyToString(key))
+               << "keyCode:" << vk << "mods:" << modsToString(mods);
+    }
 
     // Use UCKeyboardTranslate to determine what character should be produced
     // with the current keyboard layout and modifiers.
@@ -410,6 +593,10 @@ struct InputBackend::Impl {
     if (shouldTranslateToCharacter(key) && !hasShortcutMods) {
       std::u32string translated = getCharacterForKeyCode(vk, modsToCGFlags(mods));
       if (!translated.empty()) {
+        if (debugBackendEnabled()) {
+          qDebug() << "[backend::macos] tap: translating to Unicode, length:"
+                   << (int)translated.size();
+        }
         return typeText(translated);
       }
     }
@@ -421,7 +608,13 @@ struct InputBackend::Impl {
   // Handle KeyStroke with optional character data
   bool keyDown(const KeyStroke &keystroke) {
     if (keystroke.character && keystroke.character->size() > 0) {
-      // Type the character(s) instead of pressing a key
+      // Prefer sending a physical key when possible so that keyDown/keyUp
+      // semantics (hold/release) are preserved. If the key doesn't map to a
+      // physical key in the current layout, fall back to direct Unicode input.
+      CGKeyCode vk = layoutMapper.getKeyCode(keystroke.key);
+      if (vk != UINT16_MAX) {
+        return keyDown(keystroke.key, keystroke.mods);
+      }
       return typeText(*keystroke.character);
     }
     return keyDown(keystroke.key, keystroke.mods);
@@ -429,24 +622,57 @@ struct InputBackend::Impl {
 
   bool keyUp(const KeyStroke &keystroke) {
     if (keystroke.character && keystroke.character->size() > 0) {
-      // For character input, we don't have a keyUp
+      CGKeyCode vk = layoutMapper.getKeyCode(keystroke.key);
+      if (vk != UINT16_MAX) {
+        if (debugBackendEnabled()) {
+          qDebug() << "[backend::macos] keyUp(keystroke): releasing physical key"
+                   << QString::fromStdString(keyToString(keystroke.key))
+                   << "keyCode:" << vk << "mods:" << modsToString(keystroke.mods);
+        }
+        return keyUp(keystroke.key, keystroke.mods);
+      }
+      if (debugBackendEnabled()) {
+        qDebug() << "[backend::macos] keyUp(keystroke): nothing to release for Unicode input";
+      }
       return true;
+    }
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::macos] keyUp(keystroke): releasing physical key"
+               << QString::fromStdString(keyToString(keystroke.key)) << "mods:" << modsToString(keystroke.mods);
     }
     return keyUp(keystroke.key, keystroke.mods);
   }
 
   bool tap(const KeyStroke &keystroke) {
     if (keystroke.character && keystroke.character->size() > 0) {
-      // For character input, just type it
+      CGKeyCode vk = layoutMapper.getKeyCode(keystroke.key);
+      if (vk != UINT16_MAX) {
+        if (debugBackendEnabled()) {
+          qDebug() << "[backend::macos] tap(keystroke): physical tap for"
+                   << QString::fromStdString(keyToString(keystroke.key)) << "keyCode:" << vk << "mods:" << modsToString(keystroke.mods);
+        }
+        return tap(keystroke.key, keystroke.mods);
+      }
+      if (debugBackendEnabled()) {
+        qDebug() << "[backend::macos] tap(keystroke): typing Unicode text length"
+                 << (int)keystroke.character->size();
+      }
       return typeText(*keystroke.character);
+    }
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::macos] tap(keystroke): physical tap for"
+               << QString::fromStdString(keyToString(keystroke.key)) << "mods:" << modsToString(keystroke.mods);
     }
     return tap(keystroke.key, keystroke.mods);
   }
 
   bool typeText(const std::u32string &text) {
     if (text.empty()) {
+      qDebug() << "[backend::macos] typeText: empty text";
       return true;
     }
+    qDebug() << "[backend::macos] typeText:start length=" << (int)text.size()
+             << "preview=" << QString::fromStdString(debugPreviewFromUtf32(text));
 
     std::u16string utf16 = utf32ToUtf16(text);
 
@@ -458,6 +684,7 @@ struct InputBackend::Impl {
 
       CGEventRef eventDown = CGEventCreateKeyboardEvent(nullptr, 0, true);
       if (!eventDown) {
+        qDebug() << "[backend::macos] typeText: failed to create eventDown for chunk start:" << (int)i;
         return false;
       }
 
@@ -466,10 +693,12 @@ struct InputBackend::Impl {
           reinterpret_cast<const UniChar *>(utf16.data() + i));
 
       CGEventPost(kCGHIDEventTap, eventDown);
+      qDebug() << "[backend::macos] typeText: posted eventDown chunk start:" << (int)i << "chunkSize:" << (int)chunkSize;
       CFRelease(eventDown);
 
       CGEventRef eventUp = CGEventCreateKeyboardEvent(nullptr, 0, false);
       if (!eventUp) {
+        qDebug() << "[backend::macos] typeText: failed to create eventUp for chunk start:" << (int)i;
         return false;
       }
 
@@ -478,14 +707,22 @@ struct InputBackend::Impl {
           reinterpret_cast<const UniChar *>(utf16.data() + i));
 
       CGEventPost(kCGHIDEventTap, eventUp);
+      qDebug() << "[backend::macos] typeText: posted eventUp chunk start:" << (int)i << "chunkSize:" << (int)chunkSize;
       CFRelease(eventUp);
     }
 
+    qDebug() << "[backend::macos] typeText: finished successfully";
     return true;
   }
 
   bool typeText(const std::string &utf8Text) {
-    return typeText(utf8ToUtf32(utf8Text));
+    std::u32string utf32 = utf8ToUtf32(utf8Text);
+    if (debugBackendEnabled()) {
+      std::string preview = debugPreviewFromUtf32(utf32);
+      qDebug() << "[backend::macos] typeText(utf8): length=" << (int)utf32.size()
+               << "preview=" << QString::fromStdString(preview);
+    }
+    return typeText(utf32);
   }
 
   bool typeCharacter(char32_t codepoint) {

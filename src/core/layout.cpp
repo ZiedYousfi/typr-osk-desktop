@@ -1,17 +1,21 @@
 #include "layout.hpp"
 #include <algorithm>
 #include <map>
-
 namespace layout {
 
 Element ElementBuilder::addKey(backend::Key key, int row, int column,
                                float widthAsUnit, float heightAsUnit,
-                               bool toggle) {
+                               bool toggle, int holdThresholdMs) {
   auto *btn = new ui::Widget::RightClickableToolButton(parent_);
   auto input = std::make_unique<core::Input>(key, btn, backend_);
   if (toggle) {
     input->setToggleMode(true);
   }
+
+  // Configure per-key hold threshold: short presses (shorter than this)
+  // are treated as taps; holding beyond the threshold sends a single keyDown
+  // when the threshold elapses and a keyUp on release.
+  input->setHoldThresholdMs(holdThresholdMs);
 
   return Element(
       std::move(input),
