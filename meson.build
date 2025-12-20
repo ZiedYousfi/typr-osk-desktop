@@ -19,6 +19,7 @@ headers = [
   'src/core/layout.hpp',
   'src/input/input.hpp',
   'src/ui/ui.hpp',
+  'src/ui/window.hpp'
 ]
 
 # Source files
@@ -26,6 +27,7 @@ sources = [
   'src/main.cpp',
   'src/core/input.cpp',
   'src/core/layout.cpp',
+  'src/ui/window.cpp'
 ]
 
 # Include directories

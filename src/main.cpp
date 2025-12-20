@@ -8,6 +8,7 @@
 #include "core/layout.hpp"
 #include "input/input.hpp"
 #include "ui/ui.hpp"
+#include "ui/window.hpp"
 
 namespace {
 // Layout constants
@@ -31,13 +32,7 @@ int main(int argc, char **argv) {
     keyboard.requestPermissions();
   }
 
-  QWidget window;
-  window.setWindowTitle("Typr OSK");
-  window.setWindowFlags(Qt::WindowStaysOnTopHint |
-                        Qt::WindowDoesNotAcceptFocus | Qt::Tool);
-  window.setAttribute(Qt::WA_ShowWithoutActivating);
-  window.setAttribute(Qt::WA_TranslucentBackground);
-
+  Ui::Window window;
   Layout::ElementListBuilder listBuilder(&keyboard, &window);
 
   // --- Row 0: Numbers & Backspace ---
@@ -121,7 +116,9 @@ int main(int argc, char **argv) {
 
   std::vector<Layout::Element> elements = std::move(listBuilder).build();
   auto *mainLayout = Layout::toQtLayout(elements);
-  window.setLayout(mainLayout);
+  window.initialize(Ui::Window::WindowFlag::StaysOnTop |
+                        Ui::Window::WindowFlag::Transparent,
+                    mainLayout, "Typr OSK");
 
   window.adjustSize();
   window.setFixedSize(window.sizeHint());
