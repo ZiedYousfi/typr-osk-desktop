@@ -1,4 +1,4 @@
-// ui.hpp
+// widgets.hpp
 #pragma once
 
 #include <QApplication>

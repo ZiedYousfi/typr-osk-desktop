@@ -1,5 +1,5 @@
 #ifdef _WIN32
-#include "ui/ui.hpp"
+#include "ui/widgets.hpp"
 #include <windows.h>
 
 namespace ui {

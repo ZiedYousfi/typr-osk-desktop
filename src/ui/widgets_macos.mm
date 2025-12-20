@@ -2,7 +2,7 @@
 
 
 #ifdef __APPLE__
-#include "widgets.hpp"
+#include "ui/widgets.hpp"
 
 #import <Cocoa/Cocoa.h>
 #import <objc/message.h>
