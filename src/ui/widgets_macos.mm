@@ -2,19 +2,19 @@
 
 
 #ifdef __APPLE__
-#include "ui.hpp"
+#include "widgets.hpp"
 
 #import <Cocoa/Cocoa.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
 
-void Ui::initializeAppleApp() {
+void ui::initializeAppleApp() {
   // Set the application as an accessory app (like menu bar apps)
   // This prevents it from appearing in Dock and Cmd+Tab, and limits activation
   [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
 }
 
-void Ui::makeNonActivating(QWidget *window) {
+void ui::makeNonActivating(QWidget *window) {
   if (!window || !window->window())
     return;
 

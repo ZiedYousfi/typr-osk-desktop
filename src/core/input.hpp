@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../input/input.hpp"
-#include "../ui/ui.hpp"
+#include "../backend/backend.hpp"
+#include "../ui/widgets.hpp"
 
 #include <QAction>
 #include <QDebug>
@@ -10,7 +10,7 @@
 
 class QAction;
 
-namespace Core {
+namespace core {
 
 /**
  * @brief Input class that connects a Key to a RightClickableToolButton
@@ -19,12 +19,12 @@ namespace Core {
 class Input {
 public:
   // Callback types for key events
-  using KeyCallback = std::function<void(input::Key)>;
+  using KeyCallback = std::function<void(backend::Key)>;
 
   // Constructor that takes the key, button, and a reference to the input
   // backend
-  Input(input::Key key, Ui::Widget::RightClickableToolButton *button,
-        input::InputBackend *backend);
+  Input(backend::Key key, ui::Widget::RightClickableToolButton *button,
+        backend::InputBackend *backend);
 
   // Disable copy
   Input(const Input &) = delete;
@@ -37,14 +37,14 @@ public:
   ~Input();
 
   // Getters
-  [[nodiscard]] input::Key key() const;
-  [[nodiscard]] Ui::Widget::RightClickableToolButton *button() const;
-  [[nodiscard]] input::Mod modifiers() const;
+  [[nodiscard]] backend::Key key() const;
+  [[nodiscard]] ui::Widget::RightClickableToolButton *button() const;
+  [[nodiscard]] backend::Mod modifiers() const;
   [[nodiscard]] bool isToggleMode() const;
   [[nodiscard]] bool isToggled() const;
 
   // Set modifiers to apply with this key
-  void setModifiers(input::Mod mods);
+  void setModifiers(backend::Mod mods);
 
   // Set toggle mode - when true, the key will be held down until clicked again
   void setToggleMode(bool toggle);
@@ -76,15 +76,15 @@ private:
    */
   void onTriggered();
 
-  input::Key key_;
-  Ui::Widget::RightClickableToolButton *button_;
-  input::InputBackend *backend_;
+  backend::Key key_;
+  ui::Widget::RightClickableToolButton *button_;
+  backend::InputBackend *backend_;
   QAction *action_;
-  input::Mod mods_{input::Mod_None};
+  backend::Mod mods_{backend::Mod_None};
   bool isToggleMode_{false};
   bool isToggled_{false};
   KeyCallback onKeyPressed_;
   KeyCallback onKeyReleased_;
 };
 
-} // namespace Core
+} // namespace core

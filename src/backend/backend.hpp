@@ -4,7 +4,7 @@
 #include <optional>
 #include <string>
 
-namespace input {
+namespace backend {
 
 enum class Key : uint16_t {
   Unknown = 0,
@@ -482,4 +482,4 @@ private:
   Impl *m_impl{nullptr};
 };
 
-} // namespace input
+} // namespace backend

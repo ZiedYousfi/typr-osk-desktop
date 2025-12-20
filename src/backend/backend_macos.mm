@@ -1,7 +1,7 @@
 // input_macos.mm
 
 #ifdef __APPLE__
-#include "input.hpp"
+#include "backend.hpp"
 
 #include <ApplicationServices/ApplicationServices.h>
 #include <Carbon/Carbon.h> // For kVK_* virtual key codes
@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace input {
+namespace backend {
 
 namespace {
 
@@ -560,6 +560,6 @@ bool InputBackend::typeCharacter(char32_t codepoint) {
   return m_impl && m_impl->typeCharacter(codepoint);
 }
 
-} // namespace input
+} // namespace backend
 
 #endif // __APPLE__

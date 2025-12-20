@@ -5,9 +5,10 @@
 
 #include <QVBoxLayout>
 
-#include "input.hpp"
+#include "../backend/backend.hpp"
+#include "core/input.hpp"
 
-namespace Layout {
+namespace layout {
 
 /**
  * @brief Represents a single UI element (key) in the layout.
@@ -27,10 +28,10 @@ public:
   };
 
   /**
-   * @brief Construct an element with an existing Core::Input.
-   * Element takes ownership of the Core::Input.
+   * @brief Construct an element with an existing core::Input.
+   * Element takes ownership of the core::Input.
    */
-  Element(std::unique_ptr<Core::Input> input, Size size, Position pos)
+  Element(std::unique_ptr<core::Input> input, Size size, Position pos)
       : input_(std::move(input)), size_(size), pos_(pos) {}
 
   // Move-only semantics to safely manage the unique_ptr<Core::Input>
@@ -42,14 +43,14 @@ public:
   ~Element() = default;
 
   // Accessors
-  [[nodiscard]] Core::Input *input() const { return input_.get(); }
+  [[nodiscard]] core::Input *input() const { return input_.get(); }
   [[nodiscard]] float widthAsUnit() const { return size_.widthAsUnit; }
   [[nodiscard]] float heightAsUnit() const { return size_.heightAsUnit; }
   [[nodiscard]] int row() const { return pos_.row; }
   [[nodiscard]] int column() const { return pos_.column; }
 
 private:
-  std::unique_ptr<Core::Input> input_;
+  std::unique_ptr<core::Input> input_;
   Size size_;
   Position pos_;
 };
@@ -61,7 +62,7 @@ private:
  */
 class ElementBuilder {
 public:
-  explicit ElementBuilder(input::InputBackend *backend,
+  explicit ElementBuilder(backend::InputBackend *backend,
                           QWidget *parent = nullptr)
       : backend_(backend), parent_(parent) {}
 
@@ -75,12 +76,12 @@ public:
    * @param toggle Whether the key is in toggle mode.
    * @return A constructed Layout::Element.
    */
-  [[nodiscard]] Element addKey(input::Key key, int row, int column,
+  [[nodiscard]] Element addKey(backend::Key key, int row, int column,
                                float widthAsUnit = 1.0F,
                                float heightAsUnit = 1.0F, bool toggle = false);
 
 private:
-  input::InputBackend *backend_;
+  backend::InputBackend *backend_;
   QWidget *parent_;
 };
 
@@ -89,14 +90,14 @@ private:
  */
 class ElementListBuilder {
 public:
-  explicit ElementListBuilder(input::InputBackend *backend,
+  explicit ElementListBuilder(backend::InputBackend *backend,
                               QWidget *parent = nullptr)
       : builder_(backend, parent) {}
 
   /**
    * @brief Adds a key to the current row and advances the column.
    */
-  void addKey(input::Key key, float widthAsUnit = 1.0F,
+  void addKey(backend::Key key, float widthAsUnit = 1.0F,
               float heightAsUnit = 1.0F, bool toggle = false) {
     elements_.push_back(builder_.addKey(key, currentRow_, currentCol_++,
                                         widthAsUnit, heightAsUnit, toggle));
@@ -134,4 +135,4 @@ private:
  */
 QVBoxLayout *toQtLayout(const std::vector<Element> &elements);
 
-} // namespace Layout
+} // namespace layout

@@ -8,7 +8,7 @@
 #include <QToolButton>
 #include <QWidget>
 
-namespace Ui {
+namespace ui {
 
 namespace Widget {
 
@@ -102,4 +102,4 @@ inline void installNoActivationFilter(QApplication *app) {
   }
 }
 
-} // namespace Ui
+} // namespace ui

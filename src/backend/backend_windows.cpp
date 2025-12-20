@@ -2,7 +2,7 @@
 // Windows backend for keyboard input injection using SendInput API
 
 #ifdef _WIN32
-#include "input.hpp"
+#include "backend.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -12,7 +12,7 @@
 #include <vector>
 #include <windows.h>
 
-namespace input {
+namespace backend {
 
 namespace {
 
@@ -517,6 +517,6 @@ bool InputBackend::typeCharacter(char32_t c) {
   return m_impl && m_impl->typeCharacter(c);
 }
 
-} // namespace input
+} // namespace backend
 
 #endif // _WIN32

@@ -1,7 +1,7 @@
 #include "ui/window.hpp"
-#include "ui/ui.hpp"
+#include "ui/widgets.hpp"
 
-namespace Ui {
+namespace ui {
 
 Window::Window(QWidget *parent) : QWidget(parent) {}
 
@@ -83,7 +83,7 @@ void Window::applyAttributes(WindowFlag flags) {
     result &= ~Qt::Tool;
     result |= Qt::Window;
   }
-  
+
   // Frameless – when the caller explicitly asks for a frameless window we
   // replace the ``Qt::Window`` flag with ``Qt::FramelessWindowHint`` which
   // removes the native frame.
@@ -95,4 +95,4 @@ void Window::applyAttributes(WindowFlag flags) {
   return result;
 }
 
-} // namespace Ui
+} // namespace ui

@@ -11,7 +11,7 @@
 #include <QWidget>
 #include <QWindow>
 
-namespace Ui {
+namespace ui {
 
 class Window : public QWidget {
 public:
@@ -60,4 +60,4 @@ constexpr bool hasWindowFlag(Window::WindowFlag flags,
   return (flags & mask) != Window::WindowFlag::None;
 }
 
-} // namespace Ui
+} // namespace ui

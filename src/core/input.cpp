@@ -4,12 +4,12 @@
 #include <QDebug>
 #include <QString>
 
-namespace Core {
+namespace core {
 
-Input::Input(input::Key key, Ui::Widget::RightClickableToolButton *button,
-             input::InputBackend *backend)
+Input::Input(backend::Key key, ui::Widget::RightClickableToolButton *button,
+             backend::InputBackend *backend)
     : key_(key), button_(button), backend_(backend),
-      action_(new QAction(QString::fromStdString(input::keyToString(key)),
+      action_(new QAction(QString::fromStdString(backend::keyToString(key)),
                           button)) {
 
   // Configure the action
@@ -23,7 +23,7 @@ Input::Input(input::Key key, Ui::Widget::RightClickableToolButton *button,
   button_->setToolButtonStyle(Qt::ToolButtonTextOnly);
 
   qDebug() << "[Core::Input] Created input for key:"
-           << QString::fromStdString(input::keyToString(key));
+           << QString::fromStdString(backend::keyToString(key));
 }
 
 Input::Input(Input &&other) noexcept
@@ -57,17 +57,17 @@ Input &Input::operator=(Input &&other) noexcept {
 
 Input::~Input() = default;
 
-input::Key Input::key() const { return key_; }
+backend::Key Input::key() const { return key_; }
 
-Ui::Widget::RightClickableToolButton *Input::button() const { return button_; }
+ui::Widget::RightClickableToolButton *Input::button() const { return button_; }
 
-input::Mod Input::modifiers() const { return mods_; }
+backend::Mod Input::modifiers() const { return mods_; }
 
 bool Input::isToggleMode() const { return isToggleMode_; }
 
 bool Input::isToggled() const { return isToggled_; }
 
-void Input::setModifiers(input::Mod mods) { mods_ = mods; }
+void Input::setModifiers(backend::Mod mods) { mods_ = mods; }
 
 void Input::setToggleMode(bool toggle) {
   isToggleMode_ = toggle;
@@ -88,13 +88,13 @@ void Input::keyUp() { button_->setDown(false); }
 
 bool Input::tap() {
   if (backend_ == nullptr || !backend_->isReady()) {
-    qDebug() << "[Core::Input] Backend not ready for key:"
-             << QString::fromStdString(input::keyToString(key_));
+    qDebug() << "[core::Input] Backend not ready for key:"
+             << QString::fromStdString(backend::keyToString(key_));
     return false;
   }
 
-  qDebug() << "[Core::Input] Tapping key:"
-           << QString::fromStdString(input::keyToString(key_));
+  qDebug() << "[core::Input] Tapping key:"
+           << QString::fromStdString(backend::keyToString(key_));
   return backend_->tap(key_, mods_);
 }
 
@@ -103,8 +103,8 @@ bool Input::pressDown() {
     return false;
   }
 
-  qDebug() << "[Core::Input] Key down:"
-           << QString::fromStdString(input::keyToString(key_));
+  qDebug() << "[core::Input] Key down:"
+           << QString::fromStdString(backend::keyToString(key_));
   return backend_->keyDown(key_, mods_);
 }
 
@@ -113,8 +113,8 @@ bool Input::pressUp() {
     return false;
   }
 
-  qDebug() << "[Core::Input] Key up:"
-           << QString::fromStdString(input::keyToString(key_));
+  qDebug() << "[core::Input] Key up:"
+           << QString::fromStdString(backend::keyToString(key_));
   return backend_->keyUp(key_, mods_);
 }
 
@@ -148,4 +148,4 @@ void Input::onTriggered() {
   }
 }
 
-} // namespace Core
+} // namespace core

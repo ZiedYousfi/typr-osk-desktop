@@ -17,8 +17,8 @@ qt6_dep = dependency('qt6', modules: ['Core', 'Gui', 'Widgets'])
 headers = [
   'src/core/input.hpp',
   'src/core/layout.hpp',
-  'src/input/input.hpp',
-  'src/ui/ui.hpp',
+  'src/backend/backend.hpp',
+  'src/ui/widgets.hpp',
   'src/ui/window.hpp'
 ]
 
@@ -38,8 +38,8 @@ deps = [qt6_dep]
 
 if host_machine.system() == 'darwin'
   add_languages('objcpp')
-  sources += 'src/input/input_macos.mm'
-  sources += 'src/ui/ui_macos.mm'
+  sources += 'src/backend/backend_macos.mm'
+  sources += 'src/ui/widgets_macos.mm'
 
   # macOS frameworks for input injection
   coregraphics_dep = dependency('appleframeworks', modules: ['CoreGraphics'])
@@ -52,8 +52,8 @@ if host_machine.system() == 'darwin'
 endif
 
 if host_machine.system() == 'windows'
-  sources += 'src/input/input_windows.cpp'
-  sources += 'src/ui/ui_windows.cpp'
+  sources += 'src/backend/backend_windows.cpp'
+  sources += 'src/ui/widgets_windows.cpp'
 endif
 
 executable(

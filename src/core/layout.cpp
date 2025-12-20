@@ -2,13 +2,13 @@
 #include <algorithm>
 #include <map>
 
-namespace Layout {
+namespace layout {
 
-Element ElementBuilder::addKey(input::Key key, int row, int column,
+Element ElementBuilder::addKey(backend::Key key, int row, int column,
                                float widthAsUnit, float heightAsUnit,
                                bool toggle) {
-  auto *btn = new Ui::Widget::RightClickableToolButton(parent_);
-  auto input = std::make_unique<Core::Input>(key, btn, backend_);
+  auto *btn = new ui::Widget::RightClickableToolButton(parent_);
+  auto input = std::make_unique<core::Input>(key, btn, backend_);
   if (toggle) {
     input->setToggleMode(true);
   }
@@ -79,4 +79,4 @@ QVBoxLayout *toQtLayout(const std::vector<Element> &elements) {
   return mainLayout.release();
 }
 
-} // namespace Layout
+} // namespace layout
