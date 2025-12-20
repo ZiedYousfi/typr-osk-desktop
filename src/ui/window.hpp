@@ -1,6 +1,9 @@
 #pragma once
 
+#ifdef __APPLE__
 #include <MacTypes.h>
+#endif
+
 #include <cstdint>
 #include <type_traits>
 
