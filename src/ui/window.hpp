@@ -1,5 +1,6 @@
 #pragma once
 
+#include <MacTypes.h>
 #include <cstdint>
 #include <type_traits>
 
@@ -17,6 +18,7 @@ public:
     AcceptsFocus = 0x02, ///< no Qt::WindowDoesNotAcceptFocus
     Transparent = 0x04,  ///< Qt::WA_TranslucentBackground
     Decorated = 0x08,    ///< permit native frame hints
+    Frameless = 0x10     ///< Qt::FramelessWindowHint
   };
 
   explicit Window(QWidget *parent = nullptr);

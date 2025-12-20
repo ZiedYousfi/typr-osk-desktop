@@ -83,6 +83,14 @@ void Window::applyAttributes(WindowFlag flags) {
     result &= ~Qt::Tool;
     result |= Qt::Window;
   }
+  
+  // Frameless – when the caller explicitly asks for a frameless window we
+  // replace the ``Qt::Window`` flag with ``Qt::FramelessWindowHint`` which
+  // removes the native frame.
+  if (hasWindowFlag(flags, WindowFlag::Frameless)) {
+    result &= ~Qt::Window;
+    result |= Qt::FramelessWindowHint;
+  }
 
   return result;
 }

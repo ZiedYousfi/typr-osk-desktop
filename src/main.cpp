@@ -1,8 +1,10 @@
 #include <QApplication>
 #include <QDebug>
 #include <QHBoxLayout>
+#include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <unordered_map>
 #include <vector>
 
 #include "core/layout.hpp"
@@ -18,6 +20,10 @@ constexpr float kUnit2_0 = 2.0F;   // 80px / 40px
 constexpr float kUnit2_25 = 2.25F; // 90px / 40px
 constexpr float kUnit2_5 = 2.5F;   // 100px / 40px
 constexpr float kUnit6_25 = 6.25F; // 250px / 40px
+
+struct AppState {
+  std::unordered_map<std::string, QWidget *> windows;
+};
 } // namespace
 
 int main(int argc, char **argv) {
@@ -32,8 +38,13 @@ int main(int argc, char **argv) {
     keyboard.requestPermissions();
   }
 
-  Ui::Window window;
-  Layout::ElementListBuilder listBuilder(&keyboard, &window);
+  AppState state;
+
+  // --- Main Keyboard Window ---
+  Ui::Window keyboardWindow;
+  state.windows["keyboard"] = &keyboardWindow;
+
+  Layout::ElementListBuilder listBuilder(&keyboard, &keyboardWindow);
 
   // --- Row 0: Numbers & Backspace ---
   listBuilder.addKey(input::Key::Escape);
@@ -116,19 +127,52 @@ int main(int argc, char **argv) {
 
   std::vector<Layout::Element> elements = std::move(listBuilder).build();
   auto *mainLayout = Layout::toQtLayout(elements);
-  window.initialize(Ui::Window::WindowFlag::StaysOnTop |
-                        Ui::Window::WindowFlag::Transparent,
-                    mainLayout, "Typr OSK");
 
-  window.adjustSize();
-  window.setFixedSize(window.sizeHint());
-  qDebug() << "[main] Showing window";
-  window.show();
+  keyboardWindow.initialize(Ui::Window::WindowFlag::StaysOnTop |
+                                Ui::Window::WindowFlag::Transparent,
+                            mainLayout, "Typr OSK");
+
+  keyboardWindow.adjustSize();
+  qDebug() << "[main] Showing keyboard window";
+  keyboardWindow.show();
+
+  // --- Toggle Button Window ---
+  Ui::Window toggleWindow;
+  state.windows["toggle"] = &toggleWindow;
+
+  auto *toggleLayout = new QVBoxLayout();
+  auto *toggleButton = new QPushButton("Toggle Keyboard");
+  toggleLayout->addWidget(toggleButton);
+
+  QObject::connect(toggleButton, &QPushButton::clicked, [&state]() {
+    auto windowIter = state.windows.find("keyboard");
+    if (windowIter != state.windows.end() && windowIter->second != nullptr) {
+      if (windowIter->second->isVisible()) {
+        windowIter->second->hide();
+      } else {
+        windowIter->second->show();
+        // Re-apply non-activating status if needed after showing
+        Ui::makeNonActivating(windowIter->second);
+      }
+    }
+  });
+
+  toggleWindow.initialize(Ui::Window::WindowFlag::StaysOnTop |
+                              Ui::Window::WindowFlag::Transparent |
+                              Ui::Window::WindowFlag::Frameless,
+                          toggleLayout, "Typr Toggle");
+
+  toggleWindow.adjustSize();
+  toggleWindow.setFixedSize(toggleWindow.sizeHint());
+  qDebug() << "[main] Showing toggle window";
+  toggleWindow.show();
 
   qDebug() << "[main] Processing events";
   app.processEvents();
-  qDebug() << "[main] Making non-activating";
-  Ui::makeNonActivating(&window);
+
+  qDebug() << "[main] Making keyboard non-activating";
+  Ui::makeNonActivating(&keyboardWindow);
+  Ui::makeNonActivating(&toggleWindow);
 
   qDebug() << "[main] Entering event loop";
   return app.exec();
