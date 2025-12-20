@@ -1,8 +1,8 @@
 // AI made because its so hard to write + don't know how to do it + cringe + ratio apple
 
-#include "ui.hpp"
 
 #ifdef __APPLE__
+#include "ui.hpp"
 
 #import <Cocoa/Cocoa.h>
 #import <objc/message.h>
