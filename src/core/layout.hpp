@@ -71,11 +71,13 @@ public:
    * @param row The logical row in the grid.
    * @param column The logical column in the grid.
    * @param widthAsUnit The relative width of the key.
+   * @param heightAsUnit The relative height of the key.
    * @param toggle Whether the key is in toggle mode.
    * @return A constructed Layout::Element.
    */
   [[nodiscard]] Element addKey(input::Key key, int row, int column,
-                               float widthAsUnit = 1.0F, bool toggle = false);
+                               float widthAsUnit = 1.0F,
+                               float heightAsUnit = 1.0F, bool toggle = false);
 
 private:
   input::InputBackend *backend_;
@@ -94,9 +96,10 @@ public:
   /**
    * @brief Adds a key to the current row and advances the column.
    */
-  void addKey(input::Key key, float widthAsUnit = 1.0F, bool toggle = false) {
-    elements_.push_back(
-        builder_.addKey(key, currentRow_, currentCol_++, widthAsUnit, toggle));
+  void addKey(input::Key key, float widthAsUnit = 1.0F,
+              float heightAsUnit = 1.0F, bool toggle = false) {
+    elements_.push_back(builder_.addKey(key, currentRow_, currentCol_++,
+                                        widthAsUnit, heightAsUnit, toggle));
   }
 
   /**

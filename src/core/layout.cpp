@@ -5,15 +5,18 @@
 namespace Layout {
 
 Element ElementBuilder::addKey(input::Key key, int row, int column,
-                               float widthAsUnit, bool toggle) {
+                               float widthAsUnit, float heightAsUnit,
+                               bool toggle) {
   auto *btn = new Ui::Widget::RightClickableToolButton(parent_);
   auto input = std::make_unique<Core::Input>(key, btn, backend_);
   if (toggle) {
     input->setToggleMode(true);
   }
 
-  return Element(std::move(input), Element::Size{.widthAsUnit=widthAsUnit, .heightAsUnit=1.0F},
-                 Element::Position{.row=row, .column=column});
+  return Element(
+      std::move(input),
+      Element::Size{.widthAsUnit = widthAsUnit, .heightAsUnit = heightAsUnit},
+      Element::Position{.row = row, .column = column});
 }
 
 QVBoxLayout *toQtLayout(const std::vector<Element> &elements) {
@@ -38,21 +41,39 @@ QVBoxLayout *toQtLayout(const std::vector<Element> &elements) {
       return lhs->column() < rhs->column();
     });
 
+    float maxRowHeightUnit = 0.0F;
+    for (const auto *element : rowElements) {
+      maxRowHeightUnit = std::max(maxRowHeightUnit, element->heightAsUnit());
+    }
+    if (maxRowHeightUnit <= 0.0F) {
+      maxRowHeightUnit = 1.0F;
+    }
+
     for (const auto *element : rowElements) {
       auto *btn = element->input()->button();
       if (btn != nullptr) {
-        // Calculate width: assuming a base unit of 40 pixels
+        // Use stretch factors for proportional resizing.
+        // We multiply by 100 to handle fractional units (e.g., 1.25, 1.5) as
+        // integers.
+        int hStretch = static_cast<int>(element->widthAsUnit() * 100);
+
+        // Set policy to Expanding in both directions
+        btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+        // Set a minimum size based on units to prevent keys from collapsing
+        // entirely
         constexpr int baseUnit = 40;
-        int width = static_cast<int>(element->widthAsUnit() * baseUnit);
+        btn->setMinimumSize(
+            static_cast<int>(element->widthAsUnit() * baseUnit),
+            static_cast<int>(element->heightAsUnit() * baseUnit));
 
-        btn->setMinimumWidth(width);
-        btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-
-        rowLayout->addWidget(btn);
+        rowLayout->addWidget(btn, hStretch);
       }
     }
 
-    mainLayout->addLayout(rowLayout.release());
+    // Apply vertical stretch to the row layout
+    int vStretch = static_cast<int>(maxRowHeightUnit * 100);
+    mainLayout->addLayout(rowLayout.release(), vStretch);
   }
 
   return mainLayout.release();
