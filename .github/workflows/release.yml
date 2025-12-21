@@ -35,19 +35,31 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: typr-osk-desktop-macos
-          path: ./macos
+          path: ./macos-build
 
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
           name: typr-osk-desktop-windows
-          path: ./windows
+          path: ./windows-build
 
       - name: Prepare Assets
+        shell: bash
         run: |
           mkdir -p assets
-          cp ./macos/typr-osk-desktop ./assets/typr-osk-desktop-macos
-          cp ./windows/typr-osk-desktop.exe ./assets/typr-osk-desktop-windows.exe
+
+          # Packaging macOS (simple binaire pour l'instant)
+          cp ./macos-build/typr-osk-desktop ./assets/typr-osk-desktop-macos
+
+          # Packaging Windows (ZIP complet)
+          # On nettoie les fichiers de build inutiles avant de zipper
+          find ./windows-build -name "*.obj" -delete
+          find ./windows-build -name "*.pdb" -delete
+          find ./windows-build -name "*.ninja" -delete
+          find ./windows-build -name ".ninja_*" -delete
+
+          cd windows-build && zip -r ../assets/typr-osk-desktop-windows.zip ./*
+          cd ..
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -55,7 +67,7 @@ jobs:
         with:
           files: |
             assets/typr-osk-desktop-macos
-            assets/typr-osk-desktop-windows.exe
+            assets/typr-osk-desktop-windows.zip
           draft: false
           prerelease: false
           generate_release_notes: true

@@ -50,11 +50,16 @@ jobs:
       - name: Build
         run: meson compile -C build
 
+      - name: Deploy Qt (macOS)
+        uses: ./.github/workflows/deploy-qt.yml
+        with:
+          exe_path: build/typr-osk-desktop
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact_name }}
-          path: ${{ inputs.exe_path }}
+          path: build/
 
   build-windows:
     if: ${{ inputs.platform == 'windows' }}
@@ -98,8 +103,13 @@ jobs:
       - name: Build
         run: meson compile -C build
 
+      - name: Deploy Qt (Windows)
+        uses: ./.github/workflows/deploy-qt.yml
+        with:
+          exe_path: build/typr-osk-desktop.exe
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact_name }}
-          path: ${{ inputs.exe_path }}
+          path: build/
