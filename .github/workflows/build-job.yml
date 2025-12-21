@@ -15,6 +15,7 @@ on:
 
 jobs:
   build-macos:
+    if: ${{ inputs.platform == 'macos' }}
     runs-on: macos-latest
     steps:
       - name: Checkout code
@@ -56,6 +57,7 @@ jobs:
           path: ${{ inputs.exe_path }}
 
   build-windows:
+    if: ${{ inputs.platform == 'windows' }}
     runs-on: windows-latest
     steps:
       - name: Checkout code

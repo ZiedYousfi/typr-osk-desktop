@@ -12,12 +12,14 @@ jobs:
   build-macos:
     uses: ./.github/workflows/build-job.yml
     with:
+      platform: macos
       artifact_name: typr-osk-desktop-macos
       exe_path: build/typr-osk-desktop
 
   build-windows:
     uses: ./.github/workflows/build-job.yml
     with:
+      platform: windows
       artifact_name: typr-osk-desktop-windows
       exe_path: build/typr-osk-desktop.exe
 
