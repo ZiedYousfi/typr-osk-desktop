@@ -64,8 +64,8 @@ Input::Input(backend::Key key, ui::Widget::RightClickableToolButton *button,
 
 Input::Input(Input &&other) noexcept
     : key_(other.key_), button_(other.button_), backend_(other.backend_),
-      action_(other.action_), mods_(other.mods_),
-      isToggleMode_(other.isToggleMode_), isToggled_(other.isToggled_),
+      action_(other.action_), isToggleMode_(other.isToggleMode_),
+      isToggled_(other.isToggled_),
       onKeyPressed_(std::move(other.onKeyPressed_)),
       onKeyReleased_(std::move(other.onKeyReleased_)),
       holdThresholdMs_(other.holdThresholdMs_), isPressed_(other.isPressed_),
@@ -150,7 +150,6 @@ Input &Input::operator=(Input &&other) noexcept {
     button_ = other.button_;
     backend_ = other.backend_;
     action_ = other.action_;
-    mods_ = other.mods_;
     isToggleMode_ = other.isToggleMode_;
     isToggled_ = other.isToggled_;
     onKeyPressed_ = std::move(other.onKeyPressed_);
@@ -216,13 +215,9 @@ backend::Key Input::key() const { return key_; }
 
 ui::Widget::RightClickableToolButton *Input::button() const { return button_; }
 
-backend::Mod Input::modifiers() const { return mods_; }
-
 bool Input::isToggleMode() const { return isToggleMode_; }
 
 bool Input::isToggled() const { return isToggled_; }
-
-void Input::setModifiers(backend::Mod mods) { mods_ = mods; }
 
 void Input::setToggleMode(bool toggle) {
   isToggleMode_ = toggle;
@@ -276,7 +271,8 @@ bool Input::tap() {
 
   qDebug() << "[core::Input] Tapping key:"
            << QString::fromStdString(backend::keyToString(key_));
-  return backend_->tap(key_, mods_);
+  backend::KeyStroke ks{key_};
+  return backend_->tap(ks);
 }
 
 bool Input::pressDown() {
@@ -286,7 +282,8 @@ bool Input::pressDown() {
 
   qDebug() << "[core::Input] Key down:"
            << QString::fromStdString(backend::keyToString(key_));
-  return backend_->keyDown(key_, mods_);
+  backend::KeyStroke ks{key_};
+  return backend_->keyDown(ks);
 }
 
 bool Input::pressUp() {
@@ -296,7 +293,8 @@ bool Input::pressUp() {
 
   qDebug() << "[core::Input] Key up:"
            << QString::fromStdString(backend::keyToString(key_));
-  return backend_->keyUp(key_, mods_);
+  backend::KeyStroke ks{key_};
+  return backend_->keyUp(ks);
 }
 
 void Input::setHoldThresholdMs(int thresholdInMs) {

@@ -1,7 +1,6 @@
-// input.hpp
 #pragma once
+
 #include <cstdint>
-#include <optional>
 #include <string>
 
 namespace backend {
@@ -398,32 +397,8 @@ inline std::string keyToString(Key key) {
   }
 }
 
-enum Mod : uint8_t {
-  Mod_None = 0,
-  Mod_Shift = 0x01,
-  Mod_Ctrl = 0x02,
-  Mod_Alt = 0x04,
-  Mod_Super = 0x08, // Cmd on macOS, Win key on Windows, Super on Linux
-};
-
-inline Mod operator|(Mod left, Mod right) {
-  return static_cast<Mod>(static_cast<uint8_t>(left) |
-                          static_cast<uint8_t>(right));
-}
-
-inline Mod &operator|=(Mod &left, Mod right) {
-  left = left | right;
-  return left;
-}
-
-inline bool operator&(Mod left, Mod right) {
-  return (static_cast<uint8_t>(left) & static_cast<uint8_t>(right)) != 0;
-}
-
 struct KeyStroke {
   Key key{Key::Unknown};
-  Mod mods{Mod_None};
-  std::optional<std::u32string> character; // For Unicode character input
 };
 
 struct Capabilities {
@@ -447,10 +422,10 @@ public:
   InputBackend &operator=(InputBackend &&) noexcept;
 
   // Query capabilities of this backend
-  Capabilities capabilities() const;
+  [[nodiscard]] Capabilities capabilities() const;
 
   // Check if the backend is ready to inject events
-  bool isReady() const;
+  [[nodiscard]] bool isReady() const;
 
   // Request necessary permissions (may show system dialogs)
   // Returns true if permissions are granted
@@ -461,13 +436,8 @@ public:
   bool keyDown(const KeyStroke &keystroke);
   bool keyUp(const KeyStroke &keystroke);
 
-  // Convenience overloads for basic key input
-  bool keyDown(Key key, Mod mods = Mod_None);
-  bool keyUp(Key key, Mod mods = Mod_None);
-
   // Combined key press + release
   bool tap(const KeyStroke &keystroke);
-  bool tap(Key key, Mod mods = Mod_None);
 
   // Type arbitrary Unicode text (any character in any language)
   bool typeText(const std::u32string &text);

@@ -84,16 +84,7 @@ static bool debugBackendEnabled() {
   return enabled;
 }
 
-static QString modsToString(Mod mods) {
-  QString s;
-  if (mods & Mod_Shift) s += "Shift|";
-  if (mods & Mod_Ctrl) s += "Ctrl|";
-  if (mods & Mod_Alt) s += "Alt|";
-  if (mods & Mod_Super) s += "Super|";
-  if (s.isEmpty()) return QStringLiteral("None");
-  s.chop(1);
-  return s;
-}
+
 
 // Small helper for debug logging: produce a printable (ASCII/escaped) preview
 static std::string debugPreviewFromUtf32(const std::u32string &s) {
@@ -274,38 +265,9 @@ private:
   std::unordered_map<Key, CGKeyCode> m_keyToVirtualKey;
 };
 
-// Check if a key should be translated to a character instead of just sending the virtual key code.
-bool shouldTranslateToCharacter(Key key) {
-  switch (key) {
-  case Key::A: case Key::B: case Key::C: case Key::D: case Key::E: case Key::F:
-  case Key::G: case Key::H: case Key::I: case Key::J: case Key::K: case Key::L:
-  case Key::M: case Key::N: case Key::O: case Key::P: case Key::Q: case Key::R:
-  case Key::S: case Key::T: case Key::U: case Key::V: case Key::W: case Key::X:
-  case Key::Y: case Key::Z:
-  case Key::Num0: case Key::Num1: case Key::Num2: case Key::Num3: case Key::Num4:
-  case Key::Num5: case Key::Num6: case Key::Num7: case Key::Num8: case Key::Num9:
-  case Key::Grave: case Key::Minus: case Key::Equal: case Key::LeftBracket:
-  case Key::RightBracket: case Key::Backslash: case Key::Semicolon:
-  case Key::Apostrophe: case Key::Comma: case Key::Period: case Key::Slash:
-    return true;
-  default:
-    return false;
-  }
-}
 
-// Convert input::Mod to CGEventFlags
-CGEventFlags modsToCGFlags(Mod mods) {
-  CGEventFlags flags = 0;
-  if (mods & Mod_Shift)
-    flags |= kCGEventFlagMaskShift;
-  if (mods & Mod_Ctrl)
-    flags |= kCGEventFlagMaskControl;
-  if (mods & Mod_Alt)
-    flags |= kCGEventFlagMaskAlternate;
-  if (mods & Mod_Super)
-    flags |= kCGEventFlagMaskCommand;
-  return flags;
-}
+
+
 
 // Post a keyboard event
 bool postKeyEvent(CGKeyCode keyCode, bool keyDown, CGEventFlags flags) {
@@ -423,247 +385,53 @@ struct InputBackend::Impl {
     return permissionGranted;
   }
 
-  bool keyDown(Key key, Mod mods) {
+  // Send a physical key down event for the given Key
+  bool keyDownKey(Key key) {
     CGKeyCode keyCode = layoutMapper.getKeyCode(key);
-    qDebug() << "[backend::macos] keyDown(start):"
-             << QString::fromStdString(keyToString(key))
-             << "mappedVK:" << (keyCode == UINT16_MAX ? QStringLiteral("<none>") : QString::number(keyCode))
-             << "mods:" << modsToString(mods);
-    if (keyCode == UINT16_MAX) {
-      qDebug() << "[backend::macos] keyDown: aborting (no mapping for)"
-               << QString::fromStdString(keyToString(key));
-      return false;
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::macos] keyDownKey:" << QString::fromStdString(keyToString(key))
+               << "keyCode:" << (keyCode == UINT16_MAX ? QStringLiteral("<none>") : QString::number(keyCode));
     }
-
-    // Helper to attempt a left-preferring modifier keycode (fallback to right)
-    auto getModVK = [&](Key leftKey, Key rightKey) -> CGKeyCode {
-      CGKeyCode mk = layoutMapper.getKeyCode(leftKey);
-      if (mk != UINT16_MAX) return mk;
-      return layoutMapper.getKeyCode(rightKey);
-    };
-
-    bool ok = true;
-
-    // Press modifiers physically (Shift, Ctrl, Alt, Super)
-    if (mods & Mod_Shift) {
-      CGKeyCode mk = getModVK(Key::ShiftLeft, Key::ShiftRight);
-      if (mk != UINT16_MAX) {
-        bool r = postKeyEvent(mk, true, 0);
-        qDebug() << "[backend::macos] keyDown: press Shift vk:" << mk << "result:" << r;
-        ok = r && ok;
-      } else {
-        qDebug() << "[backend::macos] keyDown: Shift mapping not found";
-      }
-    }
-    if (mods & Mod_Ctrl) {
-      CGKeyCode mk = getModVK(Key::CtrlLeft, Key::CtrlRight);
-      if (mk != UINT16_MAX) {
-        bool r = postKeyEvent(mk, true, 0);
-        qDebug() << "[backend::macos] keyDown: press Ctrl vk:" << mk << "result:" << r;
-        ok = r && ok;
-      } else {
-        qDebug() << "[backend::macos] keyDown: Ctrl mapping not found";
-      }
-    }
-    if (mods & Mod_Alt) {
-      CGKeyCode mk = getModVK(Key::AltLeft, Key::AltRight);
-      if (mk != UINT16_MAX) {
-        bool r = postKeyEvent(mk, true, 0);
-        qDebug() << "[backend::macos] keyDown: press Alt vk:" << mk << "result:" << r;
-        ok = r && ok;
-      } else {
-        qDebug() << "[backend::macos] keyDown: Alt mapping not found";
-      }
-    }
-    if (mods & Mod_Super) {
-      CGKeyCode mk = getModVK(Key::SuperLeft, Key::SuperRight);
-      if (mk != UINT16_MAX) {
-        bool r = postKeyEvent(mk, true, 0);
-        qDebug() << "[backend::macos] keyDown: press Super vk:" << mk << "result:" << r;
-        ok = r && ok;
-      } else {
-        qDebug() << "[backend::macos] keyDown: Super mapping not found";
-      }
-    }
-
-    qDebug() << "[backend::macos] keyDown: pressing main key"
-             << QString::fromStdString(keyToString(key))
-             << "keyCode:" << keyCode
-             << "mods:" << modsToString(mods);
-
-    bool r_main = postKeyEvent(keyCode, true, 0);
-    qDebug() << "[backend::macos] keyDown: main key post result:" << r_main;
-    ok = r_main && ok;
-    qDebug() << "[backend::macos] keyDown: overall result:" << ok;
-    return ok;
+    if (keyCode == UINT16_MAX) return false;
+    return postKeyEvent(keyCode, true, 0);
   }
 
-  bool keyUp(Key key, Mod mods) {
+  // Send a physical key up event for the given Key
+  bool keyUpKey(Key key) {
     CGKeyCode keyCode = layoutMapper.getKeyCode(key);
-    qDebug() << "[backend::macos] keyUp(start):"
-             << QString::fromStdString(keyToString(key))
-             << "mappedVK:" << (keyCode == UINT16_MAX ? QStringLiteral("<none>") : QString::number(keyCode))
-             << "mods:" << modsToString(mods);
-    if (keyCode == UINT16_MAX) {
-      qDebug() << "[backend::macos] keyUp: aborting (no mapping for)"
-               << QString::fromStdString(keyToString(key));
-      return false;
-    }
-
-    // Helper to attempt a left-preferring modifier keycode (fallback to right)
-    auto getModVK = [&](Key leftKey, Key rightKey) -> CGKeyCode {
-      CGKeyCode mk = layoutMapper.getKeyCode(leftKey);
-      if (mk != UINT16_MAX) return mk;
-      return layoutMapper.getKeyCode(rightKey);
-    };
-
-    bool ok = true;
-
-    // Release main key first
-    ok = postKeyEvent(keyCode, false, 0) && ok;
-
-    // Release modifiers (Shift, Ctrl, Alt, Super)
-    if (mods & Mod_Shift) {
-      CGKeyCode mk = getModVK(Key::ShiftLeft, Key::ShiftRight);
-      if (mk != UINT16_MAX) {
-        if (debugBackendEnabled()) {
-          qDebug() << "[backend::macos] keyUp: releasing Shift vk:" << mk;
-        }
-        ok = postKeyEvent(mk, false, 0) && ok;
-      }
-    }
-    if (mods & Mod_Ctrl) {
-      CGKeyCode mk = getModVK(Key::CtrlLeft, Key::CtrlRight);
-      if (mk != UINT16_MAX) {
-        if (debugBackendEnabled()) {
-          qDebug() << "[backend::macos] keyUp: releasing Ctrl vk:" << mk;
-        }
-        ok = postKeyEvent(mk, false, 0) && ok;
-      }
-    }
-    if (mods & Mod_Alt) {
-      CGKeyCode mk = getModVK(Key::AltLeft, Key::AltRight);
-      if (mk != UINT16_MAX) {
-        if (debugBackendEnabled()) {
-          qDebug() << "[backend::macos] keyUp: releasing Alt vk:" << mk;
-        }
-        ok = postKeyEvent(mk, false, 0) && ok;
-      }
-    }
-    if (mods & Mod_Super) {
-      CGKeyCode mk = getModVK(Key::SuperLeft, Key::SuperRight);
-      if (mk != UINT16_MAX) {
-        if (debugBackendEnabled()) {
-          qDebug() << "[backend::macos] keyUp: releasing Super vk:" << mk;
-        }
-        ok = postKeyEvent(mk, false, 0) && ok;
-      }
-    }
-
     if (debugBackendEnabled()) {
-      qDebug() << "[backend::macos] keyUp: main key"
-               << QString::fromStdString(keyToString(key))
-               << "keyCode:" << keyCode
-               << "mods:" << modsToString(mods);
+      qDebug() << "[backend::macos] keyUpKey:" << QString::fromStdString(keyToString(key))
+               << "keyCode:" << (keyCode == UINT16_MAX ? QStringLiteral("<none>") : QString::number(keyCode));
     }
-
-    return ok;
+    if (keyCode == UINT16_MAX) return false;
+    return postKeyEvent(keyCode, false, 0);
   }
 
-  bool tap(Key key, Mod mods) {
-    CGKeyCode vk = layoutMapper.getKeyCode(key);
-    if (vk == UINT16_MAX) {
-      if (debugBackendEnabled()) {
-        qDebug() << "[backend::macos] tap: no mapping for"
-                 << QString::fromStdString(keyToString(key));
-      }
-      return false;
-    }
-
-    if (debugBackendEnabled()) {
-      qDebug() << "[backend::macos] tap:" << QString::fromStdString(keyToString(key))
-               << "keyCode:" << vk << "mods:" << modsToString(mods);
-    }
-
-    // Use UCKeyboardTranslate to determine what character should be produced
-    // with the current keyboard layout and modifiers.
-    // We only use translation for simple character input (no Command/Control)
-    // to preserve keyboard shortcuts, but allow Alt/Option for special characters.
-    bool hasShortcutMods = (mods & (Mod_Ctrl | Mod_Super));
-    if (shouldTranslateToCharacter(key) && !hasShortcutMods) {
-      std::u32string translated = getCharacterForKeyCode(vk, modsToCGFlags(mods));
-      if (!translated.empty()) {
-        if (debugBackendEnabled()) {
-          qDebug() << "[backend::macos] tap: translating to Unicode, length:"
-                   << (int)translated.size();
-        }
-        return typeText(translated);
-      }
-    }
-
-    // If no character translation is available or appropriate, fallback to virtual key codes
-    return keyDown(key, mods) && keyUp(key, mods);
+  // Simple tap: down then up
+  bool tapKey(Key key) {
+    return keyDownKey(key) && keyUpKey(key);
   }
 
-  // Handle KeyStroke with optional character data
+  // Handle KeyStroke (now only contains Key)
   bool keyDown(const KeyStroke &keystroke) {
-    if (keystroke.character && keystroke.character->size() > 0) {
-      // Prefer sending a physical key when possible so that keyDown/keyUp
-      // semantics (hold/release) are preserved. If the key doesn't map to a
-      // physical key in the current layout, fall back to direct Unicode input.
-      CGKeyCode vk = layoutMapper.getKeyCode(keystroke.key);
-      if (vk != UINT16_MAX) {
-        return keyDown(keystroke.key, keystroke.mods);
-      }
-      return typeText(*keystroke.character);
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::macos] keyDown(keystroke):" << QString::fromStdString(keyToString(keystroke.key));
     }
-    return keyDown(keystroke.key, keystroke.mods);
+    return keyDownKey(keystroke.key);
   }
 
   bool keyUp(const KeyStroke &keystroke) {
-    if (keystroke.character && keystroke.character->size() > 0) {
-      CGKeyCode vk = layoutMapper.getKeyCode(keystroke.key);
-      if (vk != UINT16_MAX) {
-        if (debugBackendEnabled()) {
-          qDebug() << "[backend::macos] keyUp(keystroke): releasing physical key"
-                   << QString::fromStdString(keyToString(keystroke.key))
-                   << "keyCode:" << vk << "mods:" << modsToString(keystroke.mods);
-        }
-        return keyUp(keystroke.key, keystroke.mods);
-      }
-      if (debugBackendEnabled()) {
-        qDebug() << "[backend::macos] keyUp(keystroke): nothing to release for Unicode input";
-      }
-      return true;
-    }
     if (debugBackendEnabled()) {
-      qDebug() << "[backend::macos] keyUp(keystroke): releasing physical key"
-               << QString::fromStdString(keyToString(keystroke.key)) << "mods:" << modsToString(keystroke.mods);
+      qDebug() << "[backend::macos] keyUp(keystroke):" << QString::fromStdString(keyToString(keystroke.key));
     }
-    return keyUp(keystroke.key, keystroke.mods);
+    return keyUpKey(keystroke.key);
   }
 
   bool tap(const KeyStroke &keystroke) {
-    if (keystroke.character && keystroke.character->size() > 0) {
-      CGKeyCode vk = layoutMapper.getKeyCode(keystroke.key);
-      if (vk != UINT16_MAX) {
-        if (debugBackendEnabled()) {
-          qDebug() << "[backend::macos] tap(keystroke): physical tap for"
-                   << QString::fromStdString(keyToString(keystroke.key)) << "keyCode:" << vk << "mods:" << modsToString(keystroke.mods);
-        }
-        return tap(keystroke.key, keystroke.mods);
-      }
-      if (debugBackendEnabled()) {
-        qDebug() << "[backend::macos] tap(keystroke): typing Unicode text length"
-                 << (int)keystroke.character->size();
-      }
-      return typeText(*keystroke.character);
-    }
     if (debugBackendEnabled()) {
-      qDebug() << "[backend::macos] tap(keystroke): physical tap for"
-               << QString::fromStdString(keyToString(keystroke.key)) << "mods:" << modsToString(keystroke.mods);
+      qDebug() << "[backend::macos] tap(keystroke):" << QString::fromStdString(keyToString(keystroke.key));
     }
-    return tap(keystroke.key, keystroke.mods);
+    return tapKey(keystroke.key);
   }
 
   bool typeText(const std::u32string &text) {
@@ -757,7 +525,7 @@ Capabilities InputBackend::capabilities() const {
 
 bool InputBackend::isReady() const { return m_impl && m_impl->isReady(); }
 
-bool InputBackend::requestPermissions() {
+bool InputBackend::requestPermissions() {yyyu
   return m_impl && m_impl->requestPermissions();
 }
 
@@ -769,21 +537,11 @@ bool InputBackend::keyUp(const KeyStroke &keystroke) {
   return m_impl && m_impl->keyUp(keystroke);
 }
 
-bool InputBackend::keyDown(Key key, Mod mods) {
-  return m_impl && m_impl->keyDown(key, mods);
-}
-
-bool InputBackend::keyUp(Key key, Mod mods) {
-  return m_impl && m_impl->keyUp(key, mods);
-}
-
 bool InputBackend::tap(const KeyStroke &keystroke) {
   return m_impl && m_impl->tap(keystroke);
 }
 
-bool InputBackend::tap(Key key, Mod mods) {
-  return m_impl && m_impl->tap(key, mods);
-}
+
 
 bool InputBackend::typeText(const std::u32string &text) {
   return m_impl && m_impl->typeText(text);

@@ -1,4 +1,3 @@
-// input_windows.cpp
 // Windows backend for keyboard input injection using SendInput API
 
 #ifdef _WIN32
@@ -12,8 +11,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
-#include <unordered_map>
-#include <vector>
 #include <windows.h>
 
 namespace backend {
@@ -55,22 +52,6 @@ static bool debugBackendEnabled() {
     return env && env[0] != '\0';
   }();
   return enabled;
-}
-
-static QString modsToString(Mod mods) {
-  QString s;
-  if (mods & Mod_Shift)
-    s += "Shift|";
-  if (mods & Mod_Ctrl)
-    s += "Ctrl|";
-  if (mods & Mod_Alt)
-    s += "Alt|";
-  if (mods & Mod_Super)
-    s += "Super|";
-  if (s.isEmpty())
-    return QStringLiteral("None");
-  s.chop(1);
-  return s;
 }
 
 // Small helper for debug logging: produce a printable (ASCII/escaped) preview
@@ -369,138 +350,12 @@ struct InputBackend::Impl {
 
   bool requestPermissions() { return true; }
 
-  bool keyDown(Key key, Mod mods) {
-    qDebug() << "[backend::win] keyDown(start) key:"
-             << QString::fromStdString(keyToString(key))
-             << "mods:" << modsToString(mods);
-
-    std::vector<INPUT> inputs;
-    addModifierInputs(inputs, mods, true);
-
-    WORD vk = layoutMapper.getVirtualKey(key);
-    if (vk != 0) {
-      INPUT input = {0};
-      input.type = INPUT_KEYBOARD;
-      input.ki.wVk = vk;
-      input.ki.dwFlags = isExtendedKey(vk) ? KEYEVENTF_EXTENDEDKEY : 0;
-      inputs.push_back(input);
-      qDebug() << "[backend::win] keyDown: queued main key vk:" << (int)vk
-               << "ext:" << (isExtendedKey(vk) ? 1 : 0);
-    } else {
-      qWarning() << "[backend::win] keyDown: no mapping for"
-                 << QString::fromStdString(keyToString(key))
-                 << "mods:" << modsToString(mods);
-    }
-
-    bool sent = sendInputs(inputs);
-    qDebug() << "[backend::win] keyDown: sendInputs result:" << sent
-             << "inputs:" << inputs.size();
-    if (!sent)
-      qWarning() << "[backend::win] keyDown: failed to send inputs for"
-                 << QString::fromStdString(keyToString(key));
-    return sent;
-  }
-
-  bool keyUp(Key key, Mod mods) {
-    qDebug() << "[backend::win] keyUp(start) key:"
-             << QString::fromStdString(keyToString(key))
-             << "mods:" << modsToString(mods);
-
-    std::vector<INPUT> inputs;
-
-    WORD vk = layoutMapper.getVirtualKey(key);
-    if (vk != 0) {
-      INPUT input = {0};
-      input.type = INPUT_KEYBOARD;
-      input.ki.wVk = vk;
-      input.ki.dwFlags =
-          KEYEVENTF_KEYUP | (isExtendedKey(vk) ? KEYEVENTF_EXTENDEDKEY : 0);
-      inputs.push_back(input);
-      qDebug() << "[backend::win] keyUp: queued main key up vk:" << (int)vk;
-    } else {
-      qWarning() << "[backend::win] keyUp: no mapping for"
-                 << QString::fromStdString(keyToString(key))
-                 << "mods:" << modsToString(mods);
-    }
-
-    addModifierInputs(inputs, mods, false);
-    bool sent = sendInputs(inputs);
-    qDebug() << "[backend::win] keyUp: sendInputs result:" << sent
-             << "inputs:" << inputs.size();
-    if (!sent)
-      qWarning() << "[backend::win] keyUp: failed to send inputs for"
-                 << QString::fromStdString(keyToString(key));
-    return sent;
-  }
-
-  bool tap(Key key, Mod mods) {
-    std::vector<INPUT> inputs;
-
-    // Press modifiers
-    addModifierInputs(inputs, mods, true);
-
-    WORD vk = layoutMapper.getVirtualKey(key);
-    if (vk != 0) {
-      // Key down
-      INPUT down = {0};
-      down.type = INPUT_KEYBOARD;
-      down.ki.wVk = vk;
-      down.ki.dwFlags = isExtendedKey(vk) ? KEYEVENTF_EXTENDEDKEY : 0;
-      inputs.push_back(down);
-
-      // Key up
-      INPUT up = down;
-      up.ki.dwFlags |= KEYEVENTF_KEYUP;
-      inputs.push_back(up);
-    }
-
-    // Release modifiers
-    addModifierInputs(inputs, mods, false);
-
-    return sendInputs(inputs);
-  }
-
   bool keyDown(const KeyStroke &keystroke) {
-    // Unconditional entry log for traceability
+    // Simple physical key down using mapping (modifiers are represented as keys
+    // themselves)
     qDebug() << "[backend::win] keyDown(keystroke) entry:"
-             << QString::fromStdString(keyToString(keystroke.key))
-             << "mods:" << modsToString(keystroke.mods) << "hasChar:"
-             << (keystroke.character && !keystroke.character->empty());
-
-    if (keystroke.character && !keystroke.character->empty()) {
-      // Prefer physical path when mapping exists
-      WORD vk = layoutMapper.getVirtualKey(keystroke.key);
-      if (vk != 0) {
-        qDebug() << "[backend::win] keyDown(keystroke): mapped physical vk:"
-                 << (int)vk << "-> using physical path";
-        bool ok = keyDown(keystroke.key, keystroke.mods);
-        qDebug() << "[backend::win] keyDown(keystroke): physical path result:"
-                 << ok;
-        if (!ok)
-          qWarning() << "[backend::win] keyDown(keystroke): physical keyDown "
-                        "failed for"
-                     << QString::fromStdString(keyToString(keystroke.key));
-        return ok;
-      }
-
-      // No mapping -> Unicode injection
-      std::string preview = debugPreviewFromUtf32(*keystroke.character);
-      qDebug() << "[backend::win] keyDown(keystroke): no physical mapping -> "
-                  "typeText preview:"
-               << QString::fromStdString(preview);
-      bool ok = typeText(*keystroke.character);
-      qDebug() << "[backend::win] keyDown(keystroke): typeText result:" << ok;
-      if (!ok)
-        qWarning()
-            << "[backend::win] keyDown(keystroke): typeText failed preview:"
-            << QString::fromStdString(preview);
-      return ok;
-    }
-
-    // No character -> physical key path
-    qDebug() << "[backend::win] keyDown: calling physical keyDown for"
              << QString::fromStdString(keyToString(keystroke.key));
-    bool ok = keyDown(keystroke.key, keystroke.mods);
+    bool ok = keyDownKey(keystroke.key);
     qDebug() << "[backend::win] keyDown: result:" << ok;
     if (!ok)
       qWarning() << "[backend::win] keyDown: physical keyDown failed for"
@@ -509,130 +364,20 @@ struct InputBackend::Impl {
   }
 
   bool keyUp(const KeyStroke &keystroke) {
-    if (keystroke.character && !keystroke.character->empty()) {
-      // If we previously sent a physical keyDown for this keystroke,
-      // release the corresponding physical key. Otherwise there is nothing
-      // to do for direct character input.
-      WORD vk = layoutMapper.getVirtualKey(keystroke.key);
-      if (vk != 0) {
-        if (debugBackendEnabled()) {
-          qDebug() << "[backend::win] keyUp(keystroke): releasing physical key"
-                   << QString::fromStdString(keyToString(keystroke.key))
-                   << "vk:" << (int)vk
-                   << "mods:" << modsToString(keystroke.mods);
-        }
-        return keyUp(keystroke.key, keystroke.mods);
-      }
-      if (debugBackendEnabled()) {
-        qDebug() << "[backend::win] keyUp(keystroke): no physical key to "
-                    "release for Unicode input";
-      }
-      return true;
-    }
+    // Simple physical key up (modifiers are sent as independent keys)
     if (debugBackendEnabled()) {
       qDebug() << "[backend::win] keyUp(keystroke): physical key"
-               << QString::fromStdString(keyToString(keystroke.key))
-               << "mods:" << modsToString(keystroke.mods);
+               << QString::fromStdString(keyToString(keystroke.key));
     }
-    return keyUp(keystroke.key, keystroke.mods);
+    return keyUpKey(keystroke.key);
   }
 
   bool tap(const KeyStroke &keystroke) {
-    if (keystroke.character && !keystroke.character->empty()) {
-      // Prefer a physical tap when possible to better emulate a real keyboard.
-      WORD vk = layoutMapper.getVirtualKey(keystroke.key);
-      if (vk != 0) {
-        if (debugBackendEnabled()) {
-          qDebug() << "[backend::win] tap(keystroke): physical tap for"
-                   << QString::fromStdString(keyToString(keystroke.key))
-                   << "vk:" << (int)vk
-                   << "mods:" << modsToString(keystroke.mods);
-        }
-        return tap(keystroke.key, keystroke.mods);
-      }
-      if (debugBackendEnabled()) {
-        std::string preview = debugPreviewFromUtf32(*keystroke.character);
-        qDebug() << "[backend::win] tap(keystroke): typing Unicode preview:"
-                 << QString::fromStdString(preview)
-                 << "len:" << (int)keystroke.character->size();
-      }
-      return typeText(*keystroke.character);
-    }
     if (debugBackendEnabled()) {
       qDebug() << "[backend::win] tap(keystroke): physical tap for"
-               << QString::fromStdString(keyToString(keystroke.key))
-               << "mods:" << modsToString(keystroke.mods);
+               << QString::fromStdString(keyToString(keystroke.key));
     }
-    return tap(keystroke.key, keystroke.mods);
-  }
-
-  bool typeText(const std::u32string &text) {
-    qDebug() << "[backend::win] typeText:start length=" << (int)text.size()
-             << "preview:"
-             << QString::fromStdString(debugPreviewFromUtf32(text));
-
-    std::wstring wstr = utf32ToWString(text);
-    if (wstr.empty()) {
-      qDebug() << "[backend::win] typeText: empty -> nothing to send";
-      return true;
-    }
-
-    std::vector<INPUT> inputs;
-    inputs.reserve(wstr.size() * 2);
-
-    for (wchar_t ch : wstr) {
-      INPUT down = {0};
-      down.type = INPUT_KEYBOARD;
-      down.ki.wScan = ch;
-      down.ki.dwFlags = KEYEVENTF_UNICODE;
-      inputs.push_back(down);
-
-      INPUT up = down;
-      up.ki.dwFlags |= KEYEVENTF_KEYUP;
-      inputs.push_back(up);
-    }
-
-    bool sent = sendInputs(inputs);
-    qDebug() << "[backend::win] typeText: sendInputs result:" << sent
-             << "events:" << inputs.size();
-    if (!sent)
-      qWarning() << "[backend::win] typeText: sendInputs failed";
-    return sent;
-  }
-
-  bool typeText(const std::string &utf8Text) {
-    if (utf8Text.empty())
-      return true;
-
-    if (debugBackendEnabled()) {
-      std::string preview = utf8Text;
-      if (preview.size() > 64)
-        preview = preview.substr(0, 64) + "...";
-      qDebug() << "[backend::win] typeText(utf8): length="
-               << (int)utf8Text.size()
-               << "preview:" << QString::fromStdString(preview);
-    }
-
-    std::wstring wstr = utf8ToWString(utf8Text);
-    if (wstr.empty())
-      return true;
-
-    std::vector<INPUT> inputs;
-    inputs.reserve(wstr.size() * 2);
-
-    for (wchar_t ch : wstr) {
-      INPUT down = {0};
-      down.type = INPUT_KEYBOARD;
-      down.ki.wScan = ch;
-      down.ki.dwFlags = KEYEVENTF_UNICODE;
-      inputs.push_back(down);
-
-      INPUT up = down;
-      up.ki.dwFlags |= KEYEVENTF_KEYUP;
-      inputs.push_back(up);
-    }
-
-    return sendInputs(inputs);
+    return tapKey(keystroke.key);
   }
 
   bool typeCharacter(char32_t codepoint) {
@@ -640,38 +385,57 @@ struct InputBackend::Impl {
   }
 
 private:
-  void addModifierInputs(std::vector<INPUT> &inputs, Mod mods, bool down) {
-    DWORD flags = down ? 0 : KEYEVENTF_KEYUP;
-
-    if (mods & Mod_Shift) {
-      INPUT input = {0};
-      input.type = INPUT_KEYBOARD;
-      input.ki.wVk = VK_SHIFT;
-      input.ki.dwFlags = flags;
-      inputs.push_back(input);
+  // Send a physical key down (using virtual-key mapping)
+  bool keyDownKey(Key key) {
+    WORD vk = layoutMapper.getVirtualKey(key);
+    if (vk == 0) {
+      if (debugBackendEnabled()) {
+        qDebug() << "[backend::win] keyDownKey: no mapping for"
+                 << QString::fromStdString(keyToString(key));
+      }
+      return false;
     }
-    if (mods & Mod_Ctrl) {
-      INPUT input = {0};
-      input.type = INPUT_KEYBOARD;
-      input.ki.wVk = VK_CONTROL;
-      input.ki.dwFlags = flags;
-      inputs.push_back(input);
+    INPUT input = {0};
+    input.type = INPUT_KEYBOARD;
+    input.ki.wVk = vk;
+    if (isExtendedKey(vk)) {
+      input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
     }
-    if (mods & Mod_Alt) {
-      INPUT input = {0};
-      input.type = INPUT_KEYBOARD;
-      input.ki.wVk = VK_MENU;
-      input.ki.dwFlags = flags;
-      inputs.push_back(input);
+    std::vector<INPUT> inputs;
+    inputs.push_back(input);
+    bool ok = sendInputs(inputs);
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::win] keyDownKey: vk:" << (int)vk << "ok:" << ok;
     }
-    if (mods & Mod_Super) {
-      INPUT input = {0};
-      input.type = INPUT_KEYBOARD;
-      input.ki.wVk = VK_LWIN;
-      input.ki.dwFlags = flags;
-      inputs.push_back(input);
-    }
+    return ok;
   }
+
+  // Send a physical key up (using virtual-key mapping)
+  bool keyUpKey(Key key) {
+    WORD vk = layoutMapper.getVirtualKey(key);
+    if (vk == 0) {
+      if (debugBackendEnabled()) {
+        qDebug() << "[backend::win] keyUpKey: no mapping for"
+                 << QString::fromStdString(keyToString(key));
+      }
+      return false;
+    }
+    INPUT input = {0};
+    input.type = INPUT_KEYBOARD;
+    input.ki.wVk = vk;
+    input.ki.dwFlags =
+        KEYEVENTF_KEYUP | (isExtendedKey(vk) ? KEYEVENTF_EXTENDEDKEY : 0);
+    std::vector<INPUT> inputs;
+    inputs.push_back(input);
+    bool ok = sendInputs(inputs);
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::win] keyUpKey: vk:" << (int)vk << "ok:" << ok;
+    }
+    return ok;
+  }
+
+  // Simple tap: down then up
+  bool tapKey(Key key) { return keyDownKey(key) && keyUpKey(key); }
 };
 
 // InputBackend public interface implementation (Standard Pimpl delegation)
@@ -704,14 +468,9 @@ bool InputBackend::keyDown(const KeyStroke &ks) {
 bool InputBackend::keyUp(const KeyStroke &ks) {
   return m_impl && m_impl->keyUp(ks);
 }
-bool InputBackend::keyDown(Key k, Mod m) {
-  return m_impl && m_impl->keyDown(k, m);
-}
-bool InputBackend::keyUp(Key k, Mod m) { return m_impl && m_impl->keyUp(k, m); }
 bool InputBackend::tap(const KeyStroke &ks) {
   return m_impl && m_impl->tap(ks);
 }
-bool InputBackend::tap(Key k, Mod m) { return m_impl && m_impl->tap(k, m); }
 bool InputBackend::typeText(const std::u32string &t) {
   return m_impl && m_impl->typeText(t);
 }
