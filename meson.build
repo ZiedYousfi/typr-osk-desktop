@@ -63,6 +63,10 @@ if host_machine.system() == 'darwin'
   deps += [coregraphics_dep, carbon_dep, appservices_dep, foundation_dep, cocoa_dep]
 endif
 
+if host_machine.system() == 'linux'
+  sources += 'src/backend/backend_uinput.cpp'
+endif
+
 if host_machine.system() == 'windows'
   sources += 'src/backend/backend_windows.cpp'
   sources += 'src/ui/widgets_windows.cpp'
