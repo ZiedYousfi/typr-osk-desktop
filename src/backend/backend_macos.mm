@@ -525,7 +525,7 @@ Capabilities InputBackend::capabilities() const {
 
 bool InputBackend::isReady() const { return m_impl && m_impl->isReady(); }
 
-bool InputBackend::requestPermissions() {yyyu
+bool InputBackend::requestPermissions() {
   return m_impl && m_impl->requestPermissions();
 }
 

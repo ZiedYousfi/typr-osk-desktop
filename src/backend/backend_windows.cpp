@@ -384,6 +384,70 @@ struct InputBackend::Impl {
     return typeText(std::u32string(1, codepoint));
   }
 
+  bool typeText(const std::u32string &text) {
+    if (text.empty())
+      return true;
+
+    logTypeText(text);
+
+    std::wstring w = utf32ToWString(text);
+    std::vector<INPUT> inputs;
+    inputs.reserve(w.size() * 2);
+
+    for (wchar_t ch : w) {
+      INPUT down = {0};
+      down.type = INPUT_KEYBOARD;
+      down.ki.wVk = 0;
+      down.ki.wScan = static_cast<WORD>(ch);
+      down.ki.dwFlags = KEYEVENTF_UNICODE;
+      inputs.push_back(down);
+
+      INPUT up = down;
+      up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+      inputs.push_back(up);
+    }
+
+    bool ok = sendInputs(inputs);
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::win] typeText(utf32): sent" << (int)w.size()
+               << "codeunits, ok:" << ok;
+    }
+    return ok;
+  }
+
+  bool typeText(const std::string &utf8Text) {
+    if (utf8Text.empty())
+      return true;
+
+    std::wstring w = utf8ToWString(utf8Text);
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::win] typeText(utf8): length=" << (int)w.size();
+    }
+
+    std::vector<INPUT> inputs;
+    inputs.reserve(w.size() * 2);
+
+    for (wchar_t ch : w) {
+      INPUT down = {0};
+      down.type = INPUT_KEYBOARD;
+      down.ki.wVk = 0;
+      down.ki.wScan = static_cast<WORD>(ch);
+      down.ki.dwFlags = KEYEVENTF_UNICODE;
+      inputs.push_back(down);
+
+      INPUT up = down;
+      up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+      inputs.push_back(up);
+    }
+
+    bool ok = sendInputs(inputs);
+    if (debugBackendEnabled()) {
+      qDebug() << "[backend::win] typeText(utf8): sent" << (int)w.size()
+               << "codeunits, ok:" << ok;
+    }
+    return ok;
+  }
+
 private:
   // Send a physical key down (using virtual-key mapping)
   bool keyDownKey(Key key) {
