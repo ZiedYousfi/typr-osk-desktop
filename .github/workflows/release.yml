@@ -104,11 +104,22 @@ jobs:
         run: |
           meson compile -C build
 
+      - name: Deploy Qt DLLs (Windows)
+        run: |
+          $qtToolsPath = (Get-ChildItem -Path conan-build -Recurse -Filter windeployqt.exe | Select-Object -First 1).FullName
+          if (-not $qtToolsPath) { throw "windeployqt.exe not found in conan-build. Make sure qttools is enabled in Conan options." }
+          & $qtToolsPath build/typr-osk-desktop.exe
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: typr-osk-desktop-windows
-          path: build/typr-osk-desktop.exe
+          path: |
+            build/typr-osk-desktop.exe
+            build/*.dll
+            build/platforms/*
+            build/imageformats/*
+            build/styles/*
 
   release:
     name: Create Release
