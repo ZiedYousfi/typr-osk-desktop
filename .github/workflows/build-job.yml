@@ -1,0 +1,103 @@
+name: Build Job
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        required: true
+        type: string
+      artifact_name:
+        required: true
+        type: string
+      exe_path:
+        required: true
+        type: string
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Meson, Ninja, and Conan
+        run: pip install meson ninja conan
+
+      - name: Install pkgconf (macOS)
+        run: brew install pkgconf
+
+      - name: Setup Conan profile
+        run: conan profile detect --force
+
+      - name: Install Dependencies (Conan)
+        run: conan install . --output-folder=conan-build --build=missing -s build_type=Release -s compiler.cppstd=20
+
+      - name: Configure Meson
+        env:
+          CC: clang
+          CXX: clang++
+          PKG_CONFIG: pkg-config
+          PKG_CONFIG_PATH: ${{ github.workspace }}/conan-build
+          CMAKE_PREFIX_PATH: ${{ github.workspace }}/conan-build
+        run: meson setup build --native-file conan-build/conan_meson_native.ini --buildtype release
+
+      - name: Build
+        run: meson compile -C build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.exe_path }}
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Meson, Ninja, and Conan
+        run: pip install meson ninja conan
+
+      - name: Install pkgconfiglite (Windows)
+        run: choco install pkgconfiglite
+
+      - name: Clean PATH (Windows)
+        run: |
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch 'Strawberry' -and $_ -notmatch 'Git' -and $_ -notmatch 'mingw' }) -join ';'
+          "PATH=$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Setup MSVC (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup Conan profile
+        run: conan profile detect --force
+
+      - name: Install Dependencies (Conan)
+        run: conan install . --output-folder=conan-build --build=missing -s build_type=Release -s compiler.cppstd=20
+
+      - name: Configure Meson
+        env:
+          PKG_CONFIG: pkg-config
+          PKG_CONFIG_PATH: ${{ github.workspace }}\conan-build
+          CMAKE_PREFIX_PATH: ${{ github.workspace }}\conan-build
+        run: meson setup build --native-file conan-build/conan_meson_native.ini --buildtype release
+
+      - name: Build
+        run: meson compile -C build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.exe_path }}

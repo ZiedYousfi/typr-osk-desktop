@@ -1,0 +1,39 @@
+name: 'Deploy Qt DLLs and Qt Frameworks'
+description: 'Deploys Qt DLLs using windeployqt on Windows, and copies Qt frameworks on macOS after build.'
+inputs:
+  exe_path:
+    required: true
+    description: 'Path to the built executable (Windows: .exe, macOS: binary)'
+  qt_frameworks_path:
+    required: false
+    description: 'Path to Qt frameworks (macOS only, optional)'
+runs:
+  using: "composite"
+  steps:
+    - name: Deploy Qt DLLs (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $qtToolsPath = (Get-ChildItem -Path conan-build -Recurse -Filter windeployqt.exe | Select-Object -First 1).FullName
+        if ($qtToolsPath) {
+          & $qtToolsPath "${{ inputs.exe_path }}"
+        } else {
+          Write-Error "windeployqt.exe not found in conan-build output."
+          exit 1
+        }
+
+    - name: Deploy Qt Frameworks (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        # If a custom frameworks path is provided, use it; otherwise, try to find Qt frameworks in conan-build
+        QT_FRAMEWORKS_PATH="${{ inputs.qt_frameworks_path }}"
+        if [ -z "$QT_FRAMEWORKS_PATH" ]; then
+          QT_FRAMEWORKS_PATH=$(find conan-build -type d -name "Qt*.framework" | head -n 1)
+        fi
+        if [ -n "$QT_FRAMEWORKS_PATH" ]; then
+          echo "Copying Qt frameworks from $QT_FRAMEWORKS_PATH to $(dirname "${{ inputs.exe_path }}")"
+          cp -R "$QT_FRAMEWORKS_PATH" "$(dirname "${{ inputs.exe_path }}")/"
+        else
+          echo "No Qt frameworks found to copy."
+        fi

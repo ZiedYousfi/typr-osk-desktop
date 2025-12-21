@@ -10,116 +10,16 @@ permissions:
 
 jobs:
   build-macos:
-    name: Build on macOS
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Install Meson, Ninja, and Conan
-        run: pip install meson ninja conan
-
-      - name: Install pkgconf (macOS)
-        run: brew install pkgconf
-
-      - name: Setup Conan profile
-        env:
-          CC: clang
-          CXX: clang++
-        run: |
-          conan profile detect --force
-
-      - name: Install Dependencies (Conan)
-        run: |
-          conan install . --output-folder=conan-build --build=missing -s build_type=Release -s compiler.cppstd=20
-
-      - name: Configure Meson
-        env:
-          CC: clang
-          CXX: clang++
-          PKG_CONFIG: pkg-config
-          PKG_CONFIG_PATH: ${{ github.workspace }}/conan-build
-          CMAKE_PREFIX_PATH: ${{ github.workspace }}/conan-build
-        run: |
-          meson setup build --native-file conan-build/conan_meson_native.ini --buildtype release
-
-      - name: Build
-        run: |
-          meson compile -C build
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: typr-osk-desktop-macos
-          path: build/typr-osk-desktop
+    uses: ./.github/workflows/build-job.yml
+    with:
+      artifact_name: typr-osk-desktop-macos
+      exe_path: build/typr-osk-desktop
 
   build-windows:
-    name: Build on Windows
-    runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Install Meson, Ninja, and Conan
-        run: pip install meson ninja conan
-
-      - name: Install pkgconfiglite (Windows)
-        run: choco install pkgconfiglite
-
-      - name: Clean PATH (Windows)
-        run: |
-          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch 'Strawberry' -and $_ -notmatch 'Git' -and $_ -notmatch 'mingw' }) -join ';'
-          "PATH=$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Setup MSVC (Windows)
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Setup Conan profile
-        run: |
-          conan profile detect --force
-
-      - name: Install Dependencies (Conan)
-        run: |
-          conan install . --output-folder=conan-build --build=missing -s build_type=Release -s compiler.cppstd=20
-
-      - name: Configure Meson
-        env:
-          PKG_CONFIG: pkg-config
-          PKG_CONFIG_PATH: ${{ github.workspace }}\conan-build
-          CMAKE_PREFIX_PATH: ${{ github.workspace }}\conan-build
-        run: |
-          meson setup build --native-file conan-build/conan_meson_native.ini --buildtype release
-
-      - name: Build
-        run: |
-          meson compile -C build
-
-      - name: Deploy Qt DLLs (Windows)
-        run: |
-          $qtToolsPath = (Get-ChildItem -Path conan-build -Recurse -Filter windeployqt.exe | Select-Object -First 1).FullName
-          if (-not $qtToolsPath) { throw "windeployqt.exe not found in conan-build. Make sure qttools is enabled in Conan options." }
-          & $qtToolsPath build/typr-osk-desktop.exe
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: typr-osk-desktop-windows
-          path: |
-            build/typr-osk-desktop.exe
-            build/*.dll
-            build/platforms/*
-            build/imageformats/*
-            build/styles/*
+    uses: ./.github/workflows/build-job.yml
+    with:
+      artifact_name: typr-osk-desktop-windows
+      exe_path: build/typr-osk-desktop.exe
 
   release:
     name: Create Release
