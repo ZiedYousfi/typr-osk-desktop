@@ -1,12 +1,15 @@
-name: 'Deploy Qt DLLs and Qt Frameworks'
-description: 'Deploys Qt DLLs using windeployqt on Windows, and copies Qt frameworks on macOS after build.'
+name: "Deploy Qt DLLs and Qt Frameworks"
+description: "Deploys Qt DLLs using windeployqt on Windows, and copies Qt frameworks on macOS after build."
 inputs:
   exe_path:
     required: true
-    description: 'Path to the built executable (Windows: .exe, macOS: binary)'
+    description: "Path to the built executable (Windows: .exe, macOS: binary)"
   qt_frameworks_path:
     required: false
-    description: 'Path to Qt frameworks (macOS only, optional)'
+    description: "Path to Qt frameworks (macOS only, optional)"
+  qt_tools_path:
+    required: false
+    description: "Path to windeployqt.exe (Windows only). Can be the full path to the executable or a directory containing it. Optional; if omitted, the action will try to locate windeployqt in conan-build, PATH, and common Conan/Qt locations."
 runs:
   using: "composite"
   steps:
@@ -14,11 +17,53 @@ runs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        $qtToolsPath = (Get-ChildItem -Path conan-build -Recurse -Filter windeployqt.exe | Select-Object -First 1).FullName
+        Write-Host "Deploy Qt DLLs: locating windeployqt.exe..."
+        # Respect an explicit input first (can be a file or a directory)
+        $customQtTools = "${{ inputs.qt_tools_path }}"
+        if ($customQtTools -and (Test-Path $customQtTools)) {
+          if ((Get-Item $customQtTools).PSIsContainer) {
+            $found = Get-ChildItem -Path $customQtTools -Recurse -Filter windeployqt.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $qtToolsPath = $found.FullName }
+          } else {
+            $qtToolsPath = $customQtTools
+          }
+        }
+        # 1) Search in conan-build (conan install output)
+        if (-not $qtToolsPath) {
+          $found = Get-ChildItem -Path conan-build -Recurse -Filter windeployqt.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($found) { $qtToolsPath = $found.FullName }
+        }
+        # 2) Check PATH for windeployqt.exe
+        if (-not $qtToolsPath) {
+          $cmd = Get-Command windeployqt.exe -ErrorAction SilentlyContinue
+          if ($cmd) { $qtToolsPath = $cmd.Path }
+        }
+        # 3) Search common Conan cache and Qt install locations
+        if (-not $qtToolsPath) {
+          $searchRoots = @(
+            (Join-Path $env:USERPROFILE ".conan2"),
+            (Join-Path $env:USERPROFILE ".conan"),
+            "C:\Qt",
+            "C:\Program Files\Qt",
+            "C:\Program Files (x86)\Qt"
+          )
+          foreach ($root in $searchRoots) {
+            if ($root -and (Test-Path $root)) {
+              $found = Get-ChildItem -Path $root -Recurse -Filter windeployqt.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($found) { $qtToolsPath = $found.FullName; break }
+            }
+          }
+        }
         if ($qtToolsPath) {
+          Write-Host "Found windeployqt at: $qtToolsPath"
           & $qtToolsPath "${{ inputs.exe_path }}"
         } else {
-          Write-Error "windeployqt.exe not found in conan-build output."
+          Write-Host "windeployqt.exe not found in conan-build, PATH, or common locations."
+          Write-Host "Listing conan-build contents (up to 200 items) for debugging:"
+          Get-ChildItem -Path conan-build -Recurse -Force -ErrorAction SilentlyContinue | Select-Object -First 200 | ForEach-Object { Write-Host $_.FullName }
+          Write-Host ""
+          Write-Host "If you're using Conan-provided Qt, ensure 'qt/*:qttools=True' is set and that 'conan install' provided the tools. Alternatively provide a path via the 'qt_tools_path' input or install Qt on the runner."
+          Write-Error "windeployqt.exe not found; skipping deploy step."
           exit 1
         }
 

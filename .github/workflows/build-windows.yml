@@ -57,11 +57,39 @@ jobs:
       - name: Build
         run: meson compile -C build
 
+      - name: Locate windeployqt.exe
+        if: ${{ inputs.skip_deploy == false && inputs.exe_path != '' && runner.os == 'Windows' }}
+        id: find-windeployqt
+        shell: pwsh
+        run: |
+          Write-Host 'Searching for windeployqt.exe in conan-build and on PATH...'
+          # Prefer file system hits from conan-build if present
+          $foundItem = Get-ChildItem -Path conan-build -Recurse -Filter windeployqt.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          $foundPath = ''
+          if ($foundItem) {
+            $foundPath = $foundItem.FullName
+          } else {
+            Write-Host 'Not found in conan-build; checking PATH...'
+            $cmd = Get-Command windeployqt.exe -ErrorAction SilentlyContinue
+            if ($cmd) {
+              # Get-Command returns a CommandInfo object; use the Path property to get the executable path
+              $foundPath = $cmd.Path
+            }
+          }
+          if ($foundPath) {
+            Write-Host "Found windeployqt at $foundPath"
+            "qt_tools_path=$foundPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            Write-Host 'windeployqt.exe not found; leaving qt_tools_path empty'
+            "qt_tools_path=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+
       - name: Deploy Qt (Windows)
         if: ${{ inputs.skip_deploy == false && inputs.exe_path != '' }}
         uses: ./.github/actions/deploy-qt-dlls
         with:
           exe_path: ${{ inputs.exe_path }}
+          qt_tools_path: ${{ steps.find-windeployqt.outputs.qt_tools_path }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
