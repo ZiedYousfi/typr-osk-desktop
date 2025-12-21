@@ -271,8 +271,7 @@ bool Input::tap() {
 
   qDebug() << "[core::Input] Tapping key:"
            << QString::fromStdString(backend::keyToString(key_));
-  backend::KeyStroke ks{key_};
-  return backend_->tap(ks);
+  return backend_->tap(key_);
 }
 
 bool Input::pressDown() {
@@ -282,8 +281,7 @@ bool Input::pressDown() {
 
   qDebug() << "[core::Input] Key down:"
            << QString::fromStdString(backend::keyToString(key_));
-  backend::KeyStroke ks{key_};
-  return backend_->keyDown(ks);
+  return backend_->keyDown(key_);
 }
 
 bool Input::pressUp() {
@@ -293,8 +291,7 @@ bool Input::pressUp() {
 
   qDebug() << "[core::Input] Key up:"
            << QString::fromStdString(backend::keyToString(key_));
-  backend::KeyStroke ks{key_};
-  return backend_->keyUp(ks);
+  return backend_->keyUp(key_);
 }
 
 void Input::setHoldThresholdMs(int thresholdInMs) {

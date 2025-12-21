@@ -1,548 +1,300 @@
-// Windows backend for keyboard input injection using SendInput API
-
 #ifdef _WIN32
-#include "backend.hpp"
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <QDebug>
-#include <QString>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <windows.h>
+#include "backend.hpp"
+#include <Windows.h>
+#include <unordered_map>
+#include <thread>
+#include <chrono>
 
 namespace backend {
 
 namespace {
 
-// Convert UTF-32 string to UTF-16 (Windows native)
-std::wstring utf32ToWString(const std::u32string &text) {
-  std::wstring result;
-  for (char32_t cp : text) {
-    if (cp <= 0xFFFF) {
-      result += static_cast<wchar_t>(cp);
-    } else {
-      cp -= 0x10000;
-      result += static_cast<wchar_t>(0xD800 | (cp >> 10));
-      result += static_cast<wchar_t>(0xDC00 | (cp & 0x3FF));
-    }
-  }
-  return result;
+// Map our Key enum to Windows Virtual Key codes
+WORD keyToVK(Key key) {
+  static const std::unordered_map<Key, WORD> map = {
+    // Letters
+    {Key::A, 'A'}, {Key::B, 'B'}, {Key::C, 'C'}, {Key::D, 'D'},
+    {Key::E, 'E'}, {Key::F, 'F'}, {Key::G, 'G'}, {Key::H, 'H'},
+    {Key::I, 'I'}, {Key::J, 'J'}, {Key::K, 'K'}, {Key::L, 'L'},
+    {Key::M, 'M'}, {Key::N, 'N'}, {Key::O, 'O'}, {Key::P, 'P'},
+    {Key::Q, 'Q'}, {Key::R, 'R'}, {Key::S, 'S'}, {Key::T, 'T'},
+    {Key::U, 'U'}, {Key::V, 'V'}, {Key::W, 'W'}, {Key::X, 'X'},
+    {Key::Y, 'Y'}, {Key::Z, 'Z'},
+    // Numbers
+    {Key::Num0, '0'}, {Key::Num1, '1'}, {Key::Num2, '2'}, {Key::Num3, '3'},
+    {Key::Num4, '4'}, {Key::Num5, '5'}, {Key::Num6, '6'}, {Key::Num7, '7'},
+    {Key::Num8, '8'}, {Key::Num9, '9'},
+    // Function keys
+    {Key::F1, VK_F1}, {Key::F2, VK_F2}, {Key::F3, VK_F3}, {Key::F4, VK_F4},
+    {Key::F5, VK_F5}, {Key::F6, VK_F6}, {Key::F7, VK_F7}, {Key::F8, VK_F8},
+    {Key::F9, VK_F9}, {Key::F10, VK_F10}, {Key::F11, VK_F11}, {Key::F12, VK_F12},
+    {Key::F13, VK_F13}, {Key::F14, VK_F14}, {Key::F15, VK_F15}, {Key::F16, VK_F16},
+    {Key::F17, VK_F17}, {Key::F18, VK_F18}, {Key::F19, VK_F19}, {Key::F20, VK_F20},
+    // Control
+    {Key::Enter, VK_RETURN}, {Key::Escape, VK_ESCAPE}, {Key::Backspace, VK_BACK},
+    {Key::Tab, VK_TAB}, {Key::Space, VK_SPACE},
+    // Navigation
+    {Key::Left, VK_LEFT}, {Key::Right, VK_RIGHT}, {Key::Up, VK_UP}, {Key::Down, VK_DOWN},
+    {Key::Home, VK_HOME}, {Key::End, VK_END}, {Key::PageUp, VK_PRIOR}, {Key::PageDown, VK_NEXT},
+    {Key::Delete, VK_DELETE}, {Key::Insert, VK_INSERT},
+    {Key::PrintScreen, VK_SNAPSHOT}, {Key::ScrollLock, VK_SCROLL}, {Key::Pause, VK_PAUSE},
+    // Numpad
+    {Key::Numpad0, VK_NUMPAD0}, {Key::Numpad1, VK_NUMPAD1}, {Key::Numpad2, VK_NUMPAD2},
+    {Key::Numpad3, VK_NUMPAD3}, {Key::Numpad4, VK_NUMPAD4}, {Key::Numpad5, VK_NUMPAD5},
+    {Key::Numpad6, VK_NUMPAD6}, {Key::Numpad7, VK_NUMPAD7}, {Key::Numpad8, VK_NUMPAD8},
+    {Key::Numpad9, VK_NUMPAD9},
+    {Key::NumpadDivide, VK_DIVIDE}, {Key::NumpadMultiply, VK_MULTIPLY},
+    {Key::NumpadMinus, VK_SUBTRACT}, {Key::NumpadPlus, VK_ADD},
+    {Key::NumpadEnter, VK_RETURN}, {Key::NumpadDecimal, VK_DECIMAL},
+    // Modifiers
+    {Key::ShiftLeft, VK_LSHIFT}, {Key::ShiftRight, VK_RSHIFT},
+    {Key::CtrlLeft, VK_LCONTROL}, {Key::CtrlRight, VK_RCONTROL},
+    {Key::AltLeft, VK_LMENU}, {Key::AltRight, VK_RMENU},
+    {Key::SuperLeft, VK_LWIN}, {Key::SuperRight, VK_RWIN},
+    {Key::CapsLock, VK_CAPITAL}, {Key::NumLock, VK_NUMLOCK},
+    // Misc
+    {Key::Menu, VK_APPS},
+    {Key::Mute, VK_VOLUME_MUTE}, {Key::VolumeDown, VK_VOLUME_DOWN}, {Key::VolumeUp, VK_VOLUME_UP},
+    {Key::MediaPlayPause, VK_MEDIA_PLAY_PAUSE}, {Key::MediaStop, VK_MEDIA_STOP},
+    {Key::MediaNext, VK_MEDIA_NEXT_TRACK}, {Key::MediaPrevious, VK_MEDIA_PREV_TRACK},
+    // Punctuation
+    {Key::Grave, VK_OEM_3}, {Key::Minus, VK_OEM_MINUS}, {Key::Equal, VK_OEM_PLUS},
+    {Key::LeftBracket, VK_OEM_4}, {Key::RightBracket, VK_OEM_6}, {Key::Backslash, VK_OEM_5},
+    {Key::Semicolon, VK_OEM_1}, {Key::Apostrophe, VK_OEM_7},
+    {Key::Comma, VK_OEM_COMMA}, {Key::Period, VK_OEM_PERIOD}, {Key::Slash, VK_OEM_2},
+  };
+  
+  auto it = map.find(key);
+  return (it != map.end()) ? it->second : 0;
 }
 
-// Convert UTF-8 to UTF-16
-std::wstring utf8ToWString(const std::string &utf8) {
-  if (utf8.empty())
-    return L"";
-  int size_needed =
-      MultiByteToWideChar(CP_UTF8, 0, &utf8[0], (int)utf8.size(), NULL, 0);
-  std::wstring wstrTo(size_needed, 0);
-  MultiByteToWideChar(CP_UTF8, 0, &utf8[0], (int)utf8.size(), &wstrTo[0],
-                      size_needed);
-  return wstrTo;
-}
-
-// Debug helper utilities
-// Enable backend debug logs with environment var TYPR_OSK_DEBUG_BACKEND
-static bool debugBackendEnabled() {
-  static bool enabled = []() {
-    const char *env = std::getenv("TYPR_OSK_DEBUG_BACKEND");
-    return env && env[0] != '\0';
-  }();
-  return enabled;
-}
-
-// Small helper for debug logging: produce a printable (ASCII/escaped) preview
-static std::string debugPreviewFromUtf32(const std::u32string &s) {
-  std::string out;
-  for (char32_t cp : s) {
-    if (cp <= 0x7F && cp >= 0x20) {
-      out.push_back(static_cast<char>(cp));
-    } else if (cp == '\\n') {
-      out += "\\n";
-    } else {
-      char buf[16];
-      snprintf(buf, sizeof(buf), "\\u%04x", (unsigned)cp);
-      out += buf;
-    }
-    if (out.size() > 64) {
-      out += "...";
-      break;
-    }
-  }
-  if (out.empty())
-    out = "";
-  return out;
-}
-
-static void logTypeText(const std::u32string &text) {
-  if (!debugBackendEnabled())
-    return;
-  std::string preview = debugPreviewFromUtf32(text);
-  qDebug() << "[backend::win] typeText:"
-           << "length=" << (int)text.size()
-           << "preview=" << QString::fromStdString(preview);
-}
-
-// Helper to normalize characters for comparison (lowercase)
-wchar_t normalizeChar(wchar_t c) {
-  if (c >= L'A' && c <= L'Z') {
-    return c - L'A' + L'a';
-  }
-  return c;
-}
-
-// Query the system to find what character a virtual key produces
-wchar_t getCharacterForVirtualKey(WORD vk, HKL layout) {
-  // Get the scan code for this virtual key
-  UINT scanCode = MapVirtualKeyExW(vk, MAPVK_VK_TO_VSC, layout);
-  if (scanCode == 0) {
-    return 0;
-  }
-
-  // Use ToUnicodeEx to get the character
-  BYTE keyboardState[256] = {0};
-  wchar_t buffer[4] = {0};
-
-  int result = ToUnicodeEx(vk, scanCode, keyboardState, buffer, 4, 0, layout);
-
-  if (result == 1) {
-    return buffer[0];
-  }
-
-  return 0;
-}
-
-// Build a mapping from our Key enum to Windows virtual key codes by scanning
-// the keyboard layout
-class KeyboardLayoutMapper {
-public:
-  KeyboardLayoutMapper() { buildMappings(); }
-
-  WORD getVirtualKey(Key key) const {
-    // For non-character keys, return fixed mappings
-    auto it = m_fixedMappings.find(key);
-    if (it != m_fixedMappings.end()) {
-      return it->second;
-    }
-
-    // For character keys, use the dynamically built mapping
-    auto it2 = m_keyToVirtualKey.find(key);
-    if (it2 != m_keyToVirtualKey.end()) {
-      return it2->second;
-    }
-
-    return 0;
-  }
-
-private:
-  void buildMappings() {
-    // First, set up fixed mappings for non-character keys (these don't change
-    // with layout)
-    m_fixedMappings[Key::Enter] = VK_RETURN;
-    m_fixedMappings[Key::Escape] = VK_ESCAPE;
-    m_fixedMappings[Key::Backspace] = VK_BACK;
-    m_fixedMappings[Key::Tab] = VK_TAB;
-    m_fixedMappings[Key::Space] = VK_SPACE;
-    m_fixedMappings[Key::Delete] = VK_DELETE;
-    m_fixedMappings[Key::Insert] = VK_INSERT;
-    m_fixedMappings[Key::Pause] = VK_PAUSE;
-    m_fixedMappings[Key::Left] = VK_LEFT;
-    m_fixedMappings[Key::Right] = VK_RIGHT;
-    m_fixedMappings[Key::Up] = VK_UP;
-    m_fixedMappings[Key::Down] = VK_DOWN;
-    m_fixedMappings[Key::Home] = VK_HOME;
-    m_fixedMappings[Key::End] = VK_END;
-    m_fixedMappings[Key::PageUp] = VK_PRIOR;
-    m_fixedMappings[Key::PageDown] = VK_NEXT;
-    m_fixedMappings[Key::F1] = VK_F1;
-    m_fixedMappings[Key::F2] = VK_F2;
-    m_fixedMappings[Key::F3] = VK_F3;
-    m_fixedMappings[Key::F4] = VK_F4;
-    m_fixedMappings[Key::F5] = VK_F5;
-    m_fixedMappings[Key::F6] = VK_F6;
-    m_fixedMappings[Key::F7] = VK_F7;
-    m_fixedMappings[Key::F8] = VK_F8;
-    m_fixedMappings[Key::F9] = VK_F9;
-    m_fixedMappings[Key::F10] = VK_F10;
-    m_fixedMappings[Key::F11] = VK_F11;
-    m_fixedMappings[Key::F12] = VK_F12;
-    m_fixedMappings[Key::F13] = VK_F13;
-    m_fixedMappings[Key::F14] = VK_F14;
-    m_fixedMappings[Key::F15] = VK_F15;
-    m_fixedMappings[Key::F16] = VK_F16;
-    m_fixedMappings[Key::F17] = VK_F17;
-    m_fixedMappings[Key::F18] = VK_F18;
-    m_fixedMappings[Key::F19] = VK_F19;
-    m_fixedMappings[Key::F20] = VK_F20;
-    m_fixedMappings[Key::ShiftLeft] = VK_LSHIFT;
-    m_fixedMappings[Key::ShiftRight] = VK_RSHIFT;
-    m_fixedMappings[Key::CtrlLeft] = VK_LCONTROL;
-    m_fixedMappings[Key::CtrlRight] = VK_RCONTROL;
-    m_fixedMappings[Key::AltLeft] = VK_LMENU;
-    m_fixedMappings[Key::AltRight] = VK_RMENU;
-    m_fixedMappings[Key::SuperLeft] = VK_LWIN;
-    m_fixedMappings[Key::SuperRight] = VK_RWIN;
-    m_fixedMappings[Key::CapsLock] = VK_CAPITAL;
-    m_fixedMappings[Key::NumLock] = VK_NUMLOCK;
-    m_fixedMappings[Key::ScrollLock] = VK_SCROLL;
-    m_fixedMappings[Key::PrintScreen] = VK_SNAPSHOT;
-    m_fixedMappings[Key::Menu] = VK_APPS;
-    m_fixedMappings[Key::Mute] = VK_VOLUME_MUTE;
-    m_fixedMappings[Key::VolumeDown] = VK_VOLUME_DOWN;
-    m_fixedMappings[Key::VolumeUp] = VK_VOLUME_UP;
-    m_fixedMappings[Key::MediaPlayPause] = VK_MEDIA_PLAY_PAUSE;
-    m_fixedMappings[Key::MediaStop] = VK_MEDIA_STOP;
-    m_fixedMappings[Key::MediaNext] = VK_MEDIA_NEXT_TRACK;
-    m_fixedMappings[Key::MediaPrevious] = VK_MEDIA_PREV_TRACK;
-    m_fixedMappings[Key::Numpad0] = VK_NUMPAD0;
-    m_fixedMappings[Key::Numpad1] = VK_NUMPAD1;
-    m_fixedMappings[Key::Numpad2] = VK_NUMPAD2;
-    m_fixedMappings[Key::Numpad3] = VK_NUMPAD3;
-    m_fixedMappings[Key::Numpad4] = VK_NUMPAD4;
-    m_fixedMappings[Key::Numpad5] = VK_NUMPAD5;
-    m_fixedMappings[Key::Numpad6] = VK_NUMPAD6;
-    m_fixedMappings[Key::Numpad7] = VK_NUMPAD7;
-    m_fixedMappings[Key::Numpad8] = VK_NUMPAD8;
-    m_fixedMappings[Key::Numpad9] = VK_NUMPAD9;
-    m_fixedMappings[Key::NumpadDivide] = VK_DIVIDE;
-    m_fixedMappings[Key::NumpadMultiply] = VK_MULTIPLY;
-    m_fixedMappings[Key::NumpadMinus] = VK_SUBTRACT;
-    m_fixedMappings[Key::NumpadPlus] = VK_ADD;
-    m_fixedMappings[Key::NumpadDecimal] = VK_DECIMAL;
-    m_fixedMappings[Key::NumpadEnter] = VK_RETURN;
-
-    // Get current keyboard layout
-    HKL layout = GetKeyboardLayout(0);
-
-    // Now scan the keyboard layout to find which physical keys produce which
-    // characters We'll scan common virtual key codes
-    for (WORD vk = 0; vk < 256; ++vk) {
-      wchar_t c = getCharacterForVirtualKey(vk, layout);
-      if (c == 0)
-        continue;
-
-      c = normalizeChar(c);
-
-      // Map letters A-Z
-      if (c >= L'a' && c <= L'z') {
-        Key key = static_cast<Key>(static_cast<uint16_t>(Key::A) + (c - L'a'));
-        if (m_keyToVirtualKey.find(key) == m_keyToVirtualKey.end()) {
-          m_keyToVirtualKey[key] = vk;
-        }
-      }
-      // Map numbers 0-9
-      else if (c >= L'0' && c <= L'9') {
-        Key key =
-            static_cast<Key>(static_cast<uint16_t>(Key::Num0) + (c - L'0'));
-        if (m_keyToVirtualKey.find(key) == m_keyToVirtualKey.end()) {
-          m_keyToVirtualKey[key] = vk;
-        }
-      }
-      // Map punctuation and special characters
-      else {
-        Key key = Key::Unknown;
-        switch (c) {
-        case L'`':
-          key = Key::Grave;
-          break;
-        case L'-':
-          key = Key::Minus;
-          break;
-        case L'=':
-          key = Key::Equal;
-          break;
-        case L'[':
-          key = Key::LeftBracket;
-          break;
-        case L']':
-          key = Key::RightBracket;
-          break;
-        case L'\\':
-          key = Key::Backslash;
-          break;
-        case L';':
-          key = Key::Semicolon;
-          break;
-        case L'\'':
-          key = Key::Apostrophe;
-          break;
-        case L',':
-          key = Key::Comma;
-          break;
-        case L'.':
-          key = Key::Period;
-          break;
-        case L'/':
-          key = Key::Slash;
-          break;
-        default:
-          break;
-        }
-        if (key != Key::Unknown &&
-            m_keyToVirtualKey.find(key) == m_keyToVirtualKey.end()) {
-          m_keyToVirtualKey[key] = vk;
-        }
-      }
-    }
-  }
-
-  std::unordered_map<Key, WORD> m_fixedMappings;
-  std::unordered_map<Key, WORD> m_keyToVirtualKey;
-};
-
-// Check if a virtual key code requires the Extended Key flag
+// Check if key needs EXTENDEDKEY flag
 bool isExtendedKey(WORD vk) {
   switch (vk) {
-  case VK_INSERT:
-  case VK_DELETE:
-  case VK_HOME:
-  case VK_END:
-  case VK_PRIOR:
-  case VK_NEXT:
-  case VK_LEFT:
-  case VK_RIGHT:
-  case VK_UP:
-  case VK_DOWN:
-  case VK_DIVIDE:
-  case VK_RMENU:
-  case VK_RCONTROL:
-  case VK_LWIN:
-  case VK_RWIN:
-  case VK_APPS:
-    return true;
-  default:
-    return false;
+    case VK_INSERT: case VK_DELETE: case VK_HOME: case VK_END:
+    case VK_PRIOR: case VK_NEXT: case VK_LEFT: case VK_RIGHT:
+    case VK_UP: case VK_DOWN: case VK_SNAPSHOT: case VK_DIVIDE:
+    case VK_NUMLOCK: case VK_RCONTROL: case VK_RMENU:
+    case VK_LWIN: case VK_RWIN: case VK_APPS:
+      return true;
+    default:
+      return false;
   }
-}
-
-bool sendInputs(const std::vector<INPUT> &inputs) {
-  if (inputs.empty())
-    return true;
-  UINT sent = SendInput((UINT)inputs.size(), const_cast<LPINPUT>(inputs.data()),
-                        sizeof(INPUT));
-  return sent == inputs.size();
 }
 
 } // namespace
 
 struct InputBackend::Impl {
-  KeyboardLayoutMapper layoutMapper;
+  Modifier currentMods{Modifier::None};
+  uint32_t keyDelayUs{1000}; // 1ms default
 
-  Impl() {
-    if (debugBackendEnabled()) {
-      qDebug() << "[backend::win] InputBackend::Impl initialized";
-    }
-  }
+  bool sendKey(Key key, bool down) {
+    WORD vk = keyToVK(key);
+    if (vk == 0) return false;
 
-  Capabilities capabilities() const {
-    Capabilities caps;
-    caps.canInjectEvents = true;
-    caps.canActAsHID = false;
-    caps.needsAccessibilityPerm = false;
-    caps.needsInputMonitoringPerm = false;
-    return caps;
-  }
-
-  bool isReady() const { return true; }
-
-  bool requestPermissions() { return true; }
-
-  bool keyDown(const KeyStroke &keystroke) {
-    // Simple physical key down using mapping (modifiers are represented as keys
-    // themselves)
-    qDebug() << "[backend::win] keyDown(keystroke) entry:"
-             << QString::fromStdString(keyToString(keystroke.key));
-    bool ok = keyDownKey(keystroke.key);
-    qDebug() << "[backend::win] keyDown: result:" << ok;
-    if (!ok)
-      qWarning() << "[backend::win] keyDown: physical keyDown failed for"
-                 << QString::fromStdString(keyToString(keystroke.key));
-    return ok;
-  }
-
-  bool keyUp(const KeyStroke &keystroke) {
-    // Simple physical key up (modifiers are sent as independent keys)
-    if (debugBackendEnabled()) {
-      qDebug() << "[backend::win] keyUp(keystroke): physical key"
-               << QString::fromStdString(keyToString(keystroke.key));
-    }
-    return keyUpKey(keystroke.key);
-  }
-
-  bool tap(const KeyStroke &keystroke) {
-    if (debugBackendEnabled()) {
-      qDebug() << "[backend::win] tap(keystroke): physical tap for"
-               << QString::fromStdString(keyToString(keystroke.key));
-    }
-    return tapKey(keystroke.key);
-  }
-
-  bool typeCharacter(char32_t codepoint) {
-    return typeText(std::u32string(1, codepoint));
-  }
-
-  bool typeText(const std::u32string &text) {
-    if (text.empty())
-      return true;
-
-    logTypeText(text);
-
-    std::wstring w = utf32ToWString(text);
-    std::vector<INPUT> inputs;
-    inputs.reserve(w.size() * 2);
-
-    for (wchar_t ch : w) {
-      INPUT down = {0};
-      down.type = INPUT_KEYBOARD;
-      down.ki.wVk = 0;
-      down.ki.wScan = static_cast<WORD>(ch);
-      down.ki.dwFlags = KEYEVENTF_UNICODE;
-      inputs.push_back(down);
-
-      INPUT up = down;
-      up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
-      inputs.push_back(up);
-    }
-
-    bool ok = sendInputs(inputs);
-    if (debugBackendEnabled()) {
-      qDebug() << "[backend::win] typeText(utf32): sent" << (int)w.size()
-               << "codeunits, ok:" << ok;
-    }
-    return ok;
-  }
-
-  bool typeText(const std::string &utf8Text) {
-    if (utf8Text.empty())
-      return true;
-
-    std::wstring w = utf8ToWString(utf8Text);
-    if (debugBackendEnabled()) {
-      qDebug() << "[backend::win] typeText(utf8): length=" << (int)w.size();
-    }
-
-    std::vector<INPUT> inputs;
-    inputs.reserve(w.size() * 2);
-
-    for (wchar_t ch : w) {
-      INPUT down = {0};
-      down.type = INPUT_KEYBOARD;
-      down.ki.wVk = 0;
-      down.ki.wScan = static_cast<WORD>(ch);
-      down.ki.dwFlags = KEYEVENTF_UNICODE;
-      inputs.push_back(down);
-
-      INPUT up = down;
-      up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
-      inputs.push_back(up);
-    }
-
-    bool ok = sendInputs(inputs);
-    if (debugBackendEnabled()) {
-      qDebug() << "[backend::win] typeText(utf8): sent" << (int)w.size()
-               << "codeunits, ok:" << ok;
-    }
-    return ok;
-  }
-
-private:
-  // Send a physical key down (using virtual-key mapping)
-  bool keyDownKey(Key key) {
-    WORD vk = layoutMapper.getVirtualKey(key);
-    if (vk == 0) {
-      if (debugBackendEnabled()) {
-        qDebug() << "[backend::win] keyDownKey: no mapping for"
-                 << QString::fromStdString(keyToString(key));
-      }
-      return false;
-    }
-    INPUT input = {0};
+    INPUT input{};
     input.type = INPUT_KEYBOARD;
     input.ki.wVk = vk;
+    input.ki.wScan = MapVirtualKeyW(vk, MAPVK_VK_TO_VSC);
+    input.ki.dwFlags = KEYEVENTF_SCANCODE;
+    
     if (isExtendedKey(vk)) {
       input.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
     }
-    std::vector<INPUT> inputs;
-    inputs.push_back(input);
-    bool ok = sendInputs(inputs);
-    if (debugBackendEnabled()) {
-      qDebug() << "[backend::win] keyDownKey: vk:" << (int)vk << "ok:" << ok;
+    if (!down) {
+      input.ki.dwFlags |= KEYEVENTF_KEYUP;
     }
-    return ok;
+
+    return SendInput(1, &input, sizeof(INPUT)) > 0;
   }
 
-  // Send a physical key up (using virtual-key mapping)
-  bool keyUpKey(Key key) {
-    WORD vk = layoutMapper.getVirtualKey(key);
-    if (vk == 0) {
-      if (debugBackendEnabled()) {
-        qDebug() << "[backend::win] keyUpKey: no mapping for"
-                 << QString::fromStdString(keyToString(key));
+  bool typeUnicode(const std::u32string& text) {
+    if (text.empty()) return true;
+
+    std::vector<INPUT> inputs;
+    inputs.reserve(text.size() * 4); // Worst case: surrogate pairs + up/down
+
+    for (char32_t cp : text) {
+      // Convert to UTF-16
+      wchar_t utf16[2];
+      int len = 0;
+      
+      if (cp <= 0xFFFF) {
+        utf16[0] = static_cast<wchar_t>(cp);
+        len = 1;
+      } else if (cp <= 0x10FFFF) {
+        cp -= 0x10000;
+        utf16[0] = static_cast<wchar_t>(0xD800 | (cp >> 10));
+        utf16[1] = static_cast<wchar_t>(0xDC00 | (cp & 0x3FF));
+        len = 2;
+      } else {
+        continue; // Invalid codepoint
       }
-      return false;
+
+      for (int i = 0; i < len; ++i) {
+        INPUT down{}, up{};
+        down.type = INPUT_KEYBOARD;
+        down.ki.wScan = utf16[i];
+        down.ki.dwFlags = KEYEVENTF_UNICODE;
+        
+        up = down;
+        up.ki.dwFlags |= KEYEVENTF_KEYUP;
+        
+        inputs.push_back(down);
+        inputs.push_back(up);
+      }
     }
-    INPUT input = {0};
-    input.type = INPUT_KEYBOARD;
-    input.ki.wVk = vk;
-    input.ki.dwFlags =
-        KEYEVENTF_KEYUP | (isExtendedKey(vk) ? KEYEVENTF_EXTENDEDKEY : 0);
-    std::vector<INPUT> inputs;
-    inputs.push_back(input);
-    bool ok = sendInputs(inputs);
-    if (debugBackendEnabled()) {
-      qDebug() << "[backend::win] keyUpKey: vk:" << (int)vk << "ok:" << ok;
-    }
-    return ok;
+
+    return SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT)) > 0;
   }
 
-  // Simple tap: down then up
-  bool tapKey(Key key) { return keyDownKey(key) && keyUpKey(key); }
+  void delay() {
+    if (keyDelayUs > 0) {
+      std::this_thread::sleep_for(std::chrono::microseconds(keyDelayUs));
+    }
+  }
 };
 
-// InputBackend public interface implementation (Standard Pimpl delegation)
+InputBackend::InputBackend() : m_impl(std::make_unique<Impl>()) {}
+InputBackend::~InputBackend() = default;
+InputBackend::InputBackend(InputBackend&&) noexcept = default;
+InputBackend& InputBackend::operator=(InputBackend&&) noexcept = default;
 
-InputBackend::InputBackend() : m_impl(new Impl()) {}
-InputBackend::~InputBackend() { delete m_impl; }
-InputBackend::InputBackend(InputBackend &&other) noexcept
-    : m_impl(other.m_impl) {
-  other.m_impl = nullptr;
-}
-InputBackend &InputBackend::operator=(InputBackend &&other) noexcept {
-  if (this != &other) {
-    delete m_impl;
-    m_impl = other.m_impl;
-    other.m_impl = nullptr;
-  }
-  return *this;
-}
+BackendType InputBackend::type() const { return BackendType::Windows; }
 
 Capabilities InputBackend::capabilities() const {
-  return m_impl ? m_impl->capabilities() : Capabilities{};
+  return {
+    .canInjectKeys = true,
+    .canInjectText = true,
+    .canSimulateHID = true,  // SendInput with scancodes is HID-level
+    .supportsKeyRepeat = true,
+    .needsAccessibilityPerm = false,
+    .needsInputMonitoringPerm = false,
+    .needsUinputAccess = false,
+  };
 }
-bool InputBackend::isReady() const { return m_impl && m_impl->isReady(); }
-bool InputBackend::requestPermissions() {
-  return m_impl && m_impl->requestPermissions();
+
+bool InputBackend::isReady() const { return true; }
+bool InputBackend::requestPermissions() { return true; }
+
+bool InputBackend::keyDown(Key key) {
+  return m_impl->sendKey(key, true);
 }
-bool InputBackend::keyDown(const KeyStroke &ks) {
-  return m_impl && m_impl->keyDown(ks);
+
+bool InputBackend::keyUp(Key key) {
+  return m_impl->sendKey(key, false);
 }
-bool InputBackend::keyUp(const KeyStroke &ks) {
-  return m_impl && m_impl->keyUp(ks);
+
+bool InputBackend::tap(Key key) {
+  if (!keyDown(key)) return false;
+  m_impl->delay();
+  return keyUp(key);
 }
-bool InputBackend::tap(const KeyStroke &ks) {
-  return m_impl && m_impl->tap(ks);
+
+Modifier InputBackend::activeModifiers() const {
+  return m_impl->currentMods;
 }
-bool InputBackend::typeText(const std::u32string &t) {
-  return m_impl && m_impl->typeText(t);
+
+bool InputBackend::holdModifier(Modifier mod) {
+  bool ok = true;
+  if (hasModifier(mod, Modifier::Shift) && !hasModifier(m_impl->currentMods, Modifier::Shift)) {
+    ok &= keyDown(Key::ShiftLeft);
+  }
+  if (hasModifier(mod, Modifier::Ctrl) && !hasModifier(m_impl->currentMods, Modifier::Ctrl)) {
+    ok &= keyDown(Key::CtrlLeft);
+  }
+  if (hasModifier(mod, Modifier::Alt) && !hasModifier(m_impl->currentMods, Modifier::Alt)) {
+    ok &= keyDown(Key::AltLeft);
+  }
+  if (hasModifier(mod, Modifier::Super) && !hasModifier(m_impl->currentMods, Modifier::Super)) {
+    ok &= keyDown(Key::SuperLeft);
+  }
+  m_impl->currentMods = m_impl->currentMods | mod;
+  return ok;
 }
-bool InputBackend::typeText(const std::string &t) {
-  return m_impl && m_impl->typeText(t);
+
+bool InputBackend::releaseModifier(Modifier mod) {
+  bool ok = true;
+  if (hasModifier(mod, Modifier::Shift) && hasModifier(m_impl->currentMods, Modifier::Shift)) {
+    ok &= keyUp(Key::ShiftLeft);
+  }
+  if (hasModifier(mod, Modifier::Ctrl) && hasModifier(m_impl->currentMods, Modifier::Ctrl)) {
+    ok &= keyUp(Key::CtrlLeft);
+  }
+  if (hasModifier(mod, Modifier::Alt) && hasModifier(m_impl->currentMods, Modifier::Alt)) {
+    ok &= keyUp(Key::AltLeft);
+  }
+  if (hasModifier(mod, Modifier::Super) && hasModifier(m_impl->currentMods, Modifier::Super)) {
+    ok &= keyUp(Key::SuperLeft);
+  }
+  m_impl->currentMods = static_cast<Modifier>(
+    static_cast<uint8_t>(m_impl->currentMods) & ~static_cast<uint8_t>(mod)
+  );
+  return ok;
 }
-bool InputBackend::typeCharacter(char32_t c) {
-  return m_impl && m_impl->typeCharacter(c);
+
+bool InputBackend::releaseAllModifiers() {
+  return releaseModifier(Modifier::Shift | Modifier::Ctrl | Modifier::Alt | Modifier::Super);
+}
+
+bool InputBackend::combo(Modifier mods, Key key) {
+  if (!holdModifier(mods)) return false;
+  m_impl->delay();
+  bool ok = tap(key);
+  m_impl->delay();
+  releaseModifier(mods);
+  return ok;
+}
+
+bool InputBackend::typeText(const std::u32string& text) {
+  return m_impl->typeUnicode(text);
+}
+
+bool InputBackend::typeText(const std::string& utf8Text) {
+  // Convert UTF-8 to UTF-32
+  std::u32string utf32;
+  size_t i = 0;
+  while (i < utf8Text.size()) {
+    char32_t cp = 0;
+    unsigned char c = utf8Text[i];
+    
+    if ((c & 0x80) == 0) { cp = c; i += 1; }
+    else if ((c & 0xE0) == 0xC0) {
+      cp = (c & 0x1F) << 6;
+      if (i + 1 < utf8Text.size()) cp |= (utf8Text[i+1] & 0x3F);
+      i += 2;
+    }
+    else if ((c & 0xF0) == 0xE0) {
+      cp = (c & 0x0F) << 12;
+      if (i + 1 < utf8Text.size()) cp |= (utf8Text[i+1] & 0x3F) << 6;
+      if (i + 2 < utf8Text.size()) cp |= (utf8Text[i+2] & 0x3F);
+      i += 3;
+    }
+    else if ((c & 0xF8) == 0xF0) {
+      cp = (c & 0x07) << 18;
+      if (i + 1 < utf8Text.size()) cp |= (utf8Text[i+1] & 0x3F) << 12;
+      if (i + 2 < utf8Text.size()) cp |= (utf8Text[i+2] & 0x3F) << 6;
+      if (i + 3 < utf8Text.size()) cp |= (utf8Text[i+3] & 0x3F);
+      i += 4;
+    }
+    else { i += 1; continue; }
+    
+    utf32.push_back(cp);
+  }
+  return typeText(utf32);
+}
+
+bool InputBackend::typeCharacter(char32_t codepoint) {
+  return typeText(std::u32string(1, codepoint));
+}
+
+void InputBackend::flush() {
+  // Windows SendInput is synchronous, nothing to flush
+}
+
+void InputBackend::setKeyDelay(uint32_t delayUs) {
+  m_impl->keyDelayUs = delayUs;
 }
 
 } // namespace backend

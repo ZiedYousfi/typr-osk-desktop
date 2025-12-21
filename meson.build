@@ -39,6 +39,7 @@ sources = [
   'src/core/input.cpp',
   'src/core/layout.cpp',
   'src/ui/window.cpp',
+  'src/backend/key_utils.cpp',
 ]
 
 # Include directories
