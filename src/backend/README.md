@@ -6,17 +6,25 @@ This directory contains the cross-platform input injection backend for Typr OSK.
 
 The "right way" to implement a virtual keyboard is to send low-level hardware scan codes or virtual key codes. This allows the Operating System to handle the translation from a physical key press to a specific character based on the user's active keyboard layout (e.g., QWERTY, AZERTY, Dvorak). This ensures that the virtual keyboard behaves exactly like a physical one.
 
-## Dynamic Layout Mapping
+## Dynamic Layout Mapping (and platform differences)
 
-Instead of hardcoding the relationship between our internal `Key` enum and platform-specific virtual key codes (which are often tied to physical positions like US-QWERTY), we use a **dynamic scanning approach**.
+We prefer to send physical key events (scan codes or virtual key codes) because that preserves native shortcuts, modifier behaviour, and the Operating System's own interpretation of keys. Where possible, backends dynamically scan the system keyboard layout to map our logical `Key` enum to the appropriate physical key code for the user's active layout. In some environments (or when the backend is implemented differently) we fall back to a direct/native `Key`→platform-code mapping instead.
 
-### How it works:
+### How dynamic scanning works (when available):
 
 1. **Initialization**: When the `InputBackend` is created, it queries the current system keyboard layout.
-2. **Scanning**: The backend iterates through all available virtual key codes and asks the OS: _"If this physical key were pressed, what character would it produce?"_
-3. **Mapping**: We then build a reverse lookup table that maps our logical keys (like `Key::A`) to the specific physical key code that produces that character in the user's current layout.
+2. **Scanning**: The backend enumerates platform key codes and asks the OS: _"If this physical key were pressed, what character would it produce?"_
+3. **Mapping**: We build a reverse lookup table mapping logical keys (e.g., `Key::A`) to the platform key code that produces that character in the user's layout.
 
-This approach ensures that if a user is using an AZERTY layout, `Key::A` will automatically map to the physical key that produces 'A' on their keyboard, rather than the physical position where 'A' is located on a QWERTY keyboard.
+### Platform differences
+
+- macOS: the backend uses macOS keyboard layout APIs to translate characters to `CGKeyCode` and prefers sending mapped physical key events. macOS also supports direct Unicode injection (`CGEventKeyboardSetUnicodeString`) when needed, but most shortcut semantics are preserved by sending physical keys. Accessibility permissions are required for these capabilities.
+
+- Windows: the backend scans VK codes using `GetKeyboardLayout`, `MapVirtualKeyExW`, and `ToUnicodeEx` to build a reliable mapping. Windows supports both scancode-based (HID-like) injection and direct Unicode insertion (`KEYEVENTF_UNICODE`) for text.
+
+- Linux (uinput): the uinput backend maps our `Key` enum to Linux `KEY_*` codes and creates a virtual device via `/dev/uinput` to emit `EV_KEY` events. This implementation does not perform a per-layout scan; it relies on emitting kernel key codes. Because of that, `typeText` (direct Unicode injection) is not provided by the uinput backend here and `/dev/uinput` access must be granted via udev rules or root privileges.
+
+The overarching goal is consistent across backends: produce events that behave like physical key presses so native shortcuts, OS handling, and modifier semantics remain correct. When emitting physical key events is not possible or not ideal, backends may use direct Unicode/text injection as an alternative.
 
 ## Platform Implementation Details
 
@@ -32,9 +40,128 @@ This change brings macOS behavior into parity with the Windows backend (which al
 
 We use `GetKeyboardLayout`, `MapVirtualKeyExW`, and `ToUnicodeEx` to scan the virtual key space (VK codes). This allows us to build a mapping from our `Key` enum to the correct `WORD` virtual-key code for the active layout.
 
-## Debug logging
+### Linux (uinput) (`backend_uinput.cpp`)
 
-The input backends include optional debug logging that can be enabled at runtime. To enable detailed backend logs (which show whether a keystroke used a mapped physical key event or direct Unicode injection, virtual-key codes, modifiers, and other decision points) set the environment variable `TYPR_OSK_DEBUG_BACKEND` to a non-empty value (for example `TYPR_OSK_DEBUG_BACKEND=1`) before launching the application. These logs are intentionally off by default to avoid noisy output during normal runs.
+On Linux we provide a uinput-based backend (implemented in `src/backend/backend_uinput.cpp`) which is compiled only when building on Linux and when the X11-based backend is not requested (the implementation is guarded with `#if defined(__linux__) && !defined(BACKEND_USE_X11)`). The uinput backend opens `/dev/uinput`, creates a virtual keyboard device, and emits `EV_KEY` events to simulate real physical key presses.
+
+Key notes about the uinput backend:
+
+- It performs HID-level key injection (true hardware-level simulation).
+- Capabilities and behaviour:
+  - `canInjectKeys`: true if `/dev/uinput` was opened successfully.
+  - `canInjectText`: false — uinput injects physical keys only. Arbitrary Unicode injection would require layout-aware key sequences (not implemented).
+  - `canSimulateHID`: true
+  - `supportsKeyRepeat`: true
+  - `needsUinputAccess`: true
+- The backend tracks modifier state and sends explicit modifier press/release events (Shift/Ctrl/Alt/Super) when appropriate.
+- Because the backend manipulates `/dev/uinput`, it requires appropriate permissions. Give your user access either by running as root (not recommended) or by creating a udev rule such as:
+
+```
+# /etc/udev/rules.d/99-uinput.rules
+KERNEL=="uinput", MODE="0660", GROUP="input"
+```
+
+Then add your user to the `input` group (or adjust the group in the rule) and reload udev rules. After ensuring permissions, the backend will be able to create and use the virtual input device.
+
+If you prefer an X11-based injector instead, define `BACKEND_USE_X11` when building and provide/enable an X11 backend; the uinput backend will not be compiled in that case.
+
+In summary, uinput offers robust HID-level key simulation on Linux but requires platform permissions and does not directly support arbitrary Unicode text injection without layout mapping.
+
+## Backend API & Behaviour
+
+### Public API
+
+- `BackendType type() const`  
+  Returns which platform backend is in use (see `BackendType` enum).
+
+- `Capabilities capabilities() const`  
+  Returns a `Capabilities` struct describing what the backend supports (see below for field descriptions).
+
+- `bool isReady() const`  
+  Returns `true` when the backend is ready to inject events (permissions/grants are satisfied, required devices are available).
+
+- `bool requestPermissions()`  
+  Attempts to obtain or prompt for platform-level permissions where possible. Behavior varies by platform:
+  - macOS: prompts for Accessibility permission and updates readiness accordingly.
+  - Windows: typically returns `true`.
+  - Linux (uinput): cannot obtain udev/device permissions at runtime; returns whether the backend is ready.
+
+- Physical key events:
+  - `bool keyDown(Key key)`  
+    Simulates a physical key press and keeps the key logically down until `keyUp` is called. Internal modifier state is updated for modifier keys.
+  - `bool keyUp(Key key)`  
+    Releases a physical key that was previously pressed.
+  - `bool tap(Key key)`  
+    Convenience: `keyDown` → small delay → `keyUp`. Delay is configurable via `setKeyDelay()`.
+
+- Modifier helpers:
+  - `Modifier activeModifiers() const` — returns the currently tracked modifier bitmask.
+  - `bool holdModifier(Modifier mods)` — presses the requested modifiers (prefers left-side variants when available).
+  - `bool releaseModifier(Modifier mods)` — releases the requested modifiers if currently held.
+  - `bool releaseAllModifiers()` — releases all tracked modifiers.
+  - `bool combo(Modifier mods, Key key)` — holds modifiers, taps the key, then releases modifiers.
+
+- Text input:
+  - `bool typeText(const std::u32string& text)` — injects raw Unicode text (layout-independent) when the backend supports it.
+  - `bool typeText(const std::string& utf8Text)` — convenience overload that converts UTF-8 to UTF-32 and calls the above.
+  - `bool typeCharacter(char32_t codepoint)` — injects a single Unicode character.  
+    Note: not all backends support direct Unicode injection (for example, uinput does not).
+
+- Advanced:
+  - `void flush()` — forces sync/flush of pending events (some backends buffer events).
+  - `void setKeyDelay(uint32_t delayUs)` — sets the delay used by `tap`/`combo` (in microseconds).
+
+### Capabilities explained
+
+The returned `Capabilities` struct fields indicate backend behavior:
+
+- `canInjectKeys` — backend can send physical key events (`keyDown`/`keyUp`/`tap`).
+- `canInjectText` — backend can inject arbitrary Unicode text directly (`typeText`).
+- `canSimulateHID` — true hardware-level simulation (kernel-level / driver-level events).
+- `supportsKeyRepeat` — OS will generate key repeat when a key is held down; otherwise the UI layer may simulate repeats.
+- `needsAccessibilityPerm` — backend requires Accessibility permissions (macOS).
+- `needsInputMonitoringPerm` — backend requires Input Monitoring permission (macOS-ish workflows).
+- `needsUinputAccess` — backend needs `/dev/uinput` access (Linux uinput).
+
+### Backend type detection & selection
+
+Use `type()` and `capabilities()` at runtime to decide how to drive input for robust behaviour (for example, prefer `tap` for simple presses, or `keyDown`/`keyUp` for long presses and combos).
+
+### Platform-specific notes
+
+- macOS (`backend_macos.mm`)
+  - Uses layout scanning (`TISCopyCurrentKeyboardLayoutInputSource` + `UCKeyTranslate`) to map characters to `CGKeyCode`s and prefers sending mapped physical key events when possible.
+  - Supports direct Unicode injection via `CGEventKeyboardSetUnicodeString` (used by `typeText`).
+  - Typically requires Accessibility permission (`needsAccessibilityPerm = true`). `requestPermissions()` prompts the system dialog.
+
+- Windows (`backend_windows.cpp`)
+  - Uses `GetKeyboardLayout`, `MapVirtualKeyExW`, `ToUnicodeEx`, and `SendInput` for scancode and Unicode injection.
+  - Supports both physical key events and direct Unicode (`typeText`), and simulates HID-level events via scancodes.
+
+- Linux uinput (`backend_uinput.cpp`)
+  - Creates a virtual input device via `/dev/uinput` and emits `EV_KEY` events (true HID-level).
+  - Requires udev/device permissions; set up a udev rule (for example `KERNEL=="uinput", MODE="0660", GROUP="input"`) and add the user to that group so the process can open `/dev/uinput`.
+  - `isReady()` returns `true` only when the device was successfully opened; `requestPermissions()` cannot obtain udev permissions at runtime.
+  - Direct Unicode injection (`typeText`) is not implemented for uinput (layout-aware mapping would be required).
+
+- Linux X11 / Wayland
+  - These are platform variants that may be implemented in the future (`BackendType::LinuxX11`, `BackendType::LinuxWayland`). An X11 implementation would typically use XTest or similar and may have its own permission/visibility constraints.
+
+### Keys, Modifiers & Utilities
+
+- The `Key` enum enumerates logical keys (letters, numbers, function keys, modifiers, punctuation, etc.). Use `keyToString(Key)` and `stringToKey(const std::string&)` to convert between a stable, human-readable name and the enum (used by UI and configuration).
+- The `Modifier` bitmask represents held modifiers; use `hasModifier(state, flag)` to test flags. Backends generally press/release explicit physical modifier keys (e.g., `ShiftLeft`) for consistency.
+
+### Usage notes & best practices
+
+- Prefer `keyDown` / `keyUp` for durable presses and combos; use `tap` for simple single key presses.
+- Use `combo(mods, key)` to perform typical shortcut-like operations safely: it holds modifiers, taps the key, and releases modifiers.
+- When `capabilities().supportsKeyRepeat` is false, the UI layer may simulate repeats (the `core::Input` fallback exists for such cases).
+- For UI display and configuration, use `keyToString`/`stringToKey` to keep labels consistent across platforms.
+
+### Debug logging
+
+The input backends include optional debug logging that can be enabled at runtime. To enable detailed backend logs (which show whether a keystroke used a mapped physical key event or direct Unicode injection, virtual-key codes, scancodes, modifiers, and other decision points) set the environment variable `TYPR_OSK_DEBUG_BACKEND` to a non-empty value (for example `TYPR_OSK_DEBUG_BACKEND=1`) before launching the application. These logs are intentionally off by default to avoid noisy output during normal runs.
 
 ## Advantages of This Approach
 
