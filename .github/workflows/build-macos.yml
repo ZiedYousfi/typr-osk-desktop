@@ -1,0 +1,64 @@
+name: Build (macOS)
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        required: true
+        type: string
+      exe_path:
+        required: false
+        type: string
+      skip_deploy:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Meson, Ninja, and Conan
+        run: pip install meson ninja conan
+
+      - name: Install pkgconf (macOS)
+        run: brew install pkgconf
+
+      - name: Setup Conan profile
+        run: conan profile detect --force
+
+      - name: Install Dependencies (Conan)
+        run: conan install . --output-folder=conan-build --build=missing -s build_type=Release -s compiler.cppstd=20
+
+      - name: Configure Meson
+        env:
+          CC: clang
+          CXX: clang++
+          PKG_CONFIG: pkg-config
+          PKG_CONFIG_PATH: ${{ github.workspace }}/conan-build
+          CMAKE_PREFIX_PATH: ${{ github.workspace }}/conan-build
+        run: meson setup build --native-file conan-build/conan_meson_native.ini --buildtype release
+
+      - name: Build
+        run: meson compile -C build
+
+      - name: Deploy Qt (macOS)
+        if: ${{ inputs.skip_deploy == false && inputs.exe_path != '' }}
+        uses: ./.github/actions/deploy-qt-dlls
+        with:
+          exe_path: ${{ inputs.exe_path }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: build/
