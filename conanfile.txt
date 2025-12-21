@@ -2,6 +2,10 @@
 qt/6.8.3
 
 [options]
+# Prefer shared Qt builds on Windows and in CI to avoid MSVC linker LNK1181
+# errors caused by some static Qt packages that reference absolute object
+# files from the build machine's cache (e.g. C:\Users\runneradmin\.conan2\...)
+qt/*:shared=True
 qt/*:with_libpq=False
 qt/*:with_pq=False
 qt/*:with_mysql=False

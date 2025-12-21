@@ -4,14 +4,25 @@ project(
   version: '0.0.1',
   default_options: [
     'cpp_std=c++20',
-    'default_library=static', # Prefer static linking
     'b_ndebug=true', # Disable debug assertions
     'optimization=3', # Full optimization for release
     'strip=true', # Strip symbols in the final binary
   ],
 )
 
-qt6_dep = dependency('qt6', modules: ['Core', 'Gui', 'Widgets'])
+# Prefer shared Qt libraries on Windows to avoid issues with static
+# Qt packages that may reference absolute object paths that are not
+# available on CI (causing LNK1181: cannot open input file ...)
+if host_machine.system() == 'windows'
+  qt6_dep_shared = dependency('qt6', modules: ['Core', 'Gui', 'Widgets'], static: false, required: false)
+  if qt6_dep_shared.found()
+    qt6_dep = qt6_dep_shared
+  else
+    qt6_dep = dependency('qt6', modules: ['Core', 'Gui', 'Widgets'])
+  endif
+else
+  qt6_dep = dependency('qt6', modules: ['Core', 'Gui', 'Widgets'])
+endif
 
 # Header files
 headers = [
@@ -19,7 +30,7 @@ headers = [
   'src/core/layout.hpp',
   'src/backend/backend.hpp',
   'src/ui/widgets.hpp',
-  'src/ui/window.hpp'
+  'src/ui/window.hpp',
 ]
 
 # Source files
@@ -27,7 +38,7 @@ sources = [
   'src/main.cpp',
   'src/core/input.cpp',
   'src/core/layout.cpp',
-  'src/ui/window.cpp'
+  'src/ui/window.cpp',
 ]
 
 # Include directories
