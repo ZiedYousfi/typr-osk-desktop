@@ -72,37 +72,37 @@ Input::Input(Input &&other) noexcept
       isHeld_(other.isHeld_), holdTimer_(other.holdTimer_) {
   // Rewire connections: disconnect any connections that referenced the old
   // object's lambdas and reconnect them to this instance.
-  if (other.pressedConnection_) {
+  if (other.pressedConnection_ != nullptr) {
     QObject::disconnect(other.pressedConnection_);
   }
-  if (button_) {
+  if (button_ != nullptr) {
     pressedConnection_ = QObject::connect(button_, &QToolButton::pressed,
                                           button_, [this]() { onPressed(); });
   }
 
-  if (other.releasedConnection_) {
+  if (other.releasedConnection_ != nullptr) {
     QObject::disconnect(other.releasedConnection_);
   }
-  if (button_) {
+  if (button_ != nullptr) {
     releasedConnection_ = QObject::connect(button_, &QToolButton::released,
                                            button_, [this]() { onReleased(); });
   }
 
-  if (other.actionToggledConnection_) {
+  if (other.actionToggledConnection_ != nullptr) {
     QObject::disconnect(other.actionToggledConnection_);
   }
-  if (action_ && other.actionToggledConnection_) {
+  if ((action_ != nullptr) && (other.actionToggledConnection_ != nullptr)) {
     actionToggledConnection_ =
         QObject::connect(action_, &QAction::toggled, action_,
                          [this](bool checked) { onToggled(checked); });
   }
 
   // Reattach timer handler to use this instance
-  if (other.holdTimer_) {
-    if (other.holdTimerConnection_) {
+  if (other.holdTimer_ != nullptr) {
+    if (other.holdTimerConnection_ != nullptr) {
       QObject::disconnect(other.holdTimerConnection_);
     }
-    if (holdTimer_) {
+    if (holdTimer_ != nullptr) {
       holdTimerConnection_ = QObject::connect(
           holdTimer_, &QTimer::timeout, button_, [this]() { onHoldTimeout(); });
     }
@@ -110,11 +110,11 @@ Input::Input(Input &&other) noexcept
 
   // Reattach fallback repeat timer (if present) so a moved Input continues to
   // simulate repeated taps when the backend doesn't generate native repeats.
-  if (other.repeatTimer_) {
-    if (other.repeatTimerConnection_) {
+  if (other.repeatTimer_ != nullptr) {
+    if (other.repeatTimerConnection_ != nullptr) {
       QObject::disconnect(other.repeatTimerConnection_);
     }
-    if (repeatTimer_) {
+    if (repeatTimer_ == nullptr) {
       repeatTimerConnection_ =
           QObject::connect(repeatTimer_, &QTimer::timeout, button_, [this]() {
             if (tap()) {
@@ -161,36 +161,36 @@ Input &Input::operator=(Input &&other) noexcept {
     holdTimer_ = other.holdTimer_;
 
     // Rewire new connections as in the move ctor
-    if (other.pressedConnection_) {
+    if (other.pressedConnection_ != nullptr) {
       QObject::disconnect(other.pressedConnection_);
     }
-    if (button_) {
+    if (button_ != nullptr) {
       pressedConnection_ = QObject::connect(button_, &QToolButton::pressed,
                                             button_, [this]() { onPressed(); });
     }
 
-    if (other.releasedConnection_) {
+    if (other.releasedConnection_ != nullptr) {
       QObject::disconnect(other.releasedConnection_);
     }
-    if (button_) {
+    if (button_ != nullptr) {
       releasedConnection_ = QObject::connect(
           button_, &QToolButton::released, button_, [this]() { onReleased(); });
     }
 
-    if (other.actionToggledConnection_) {
+    if (other.actionToggledConnection_ != nullptr) {
       QObject::disconnect(other.actionToggledConnection_);
     }
-    if (action_ && other.actionToggledConnection_) {
+    if ((action_ != nullptr) && (other.actionToggledConnection_ != nullptr)) {
       actionToggledConnection_ =
           QObject::connect(action_, &QAction::toggled, action_,
                            [this](bool checked) { onToggled(checked); });
     }
 
-    if (other.holdTimer_) {
-      if (other.holdTimerConnection_) {
+    if (other.holdTimer_ != nullptr) {
+      if (other.holdTimerConnection_ != nullptr) {
         QObject::disconnect(other.holdTimerConnection_);
       }
-      if (holdTimer_) {
+      if (holdTimer_ != nullptr) {
         holdTimerConnection_ =
             QObject::connect(holdTimer_, &QTimer::timeout, button_,
                              [this]() { onHoldTimeout(); });
@@ -231,13 +231,13 @@ void Input::setToggleMode(bool toggle) {
   // Only connect QAction::toggled for toggle-mode keys so programmatic
   // triggers (shortcuts) and clicks both toggle via the same handler.
   if (toggle) {
-    if (!actionToggledConnection_) {
+    if (actionToggledConnection_ == nullptr) {
       actionToggledConnection_ =
           QObject::connect(action_, &QAction::toggled, action_,
                            [this](bool checked) { onToggled(checked); });
     }
   } else {
-    if (actionToggledConnection_) {
+    if (actionToggledConnection_ != nullptr) {
       QObject::disconnect(actionToggledConnection_);
       actionToggledConnection_ = QMetaObject::Connection();
     }
@@ -256,13 +256,13 @@ void Input::setOnKeyReleased(KeyCallback callback) {
 }
 
 void Input::keyDown() {
-  if (button_) {
+  if (button_ != nullptr) {
     button_->setDown(true);
   }
 }
 
 void Input::keyUp() {
-  if (button_) {
+  if (button_ != nullptr) {
     button_->setDown(false);
   }
 }
@@ -299,10 +299,10 @@ bool Input::pressUp() {
   return backend_->keyUp(key_, mods_);
 }
 
-void Input::setHoldThresholdMs(int ms) {
-  holdThresholdMs_ = ms;
-  if (holdTimer_) {
-    holdTimer_->setInterval(ms);
+void Input::setHoldThresholdMs(int thresholdInMs) {
+  holdThresholdMs_ = thresholdInMs;
+  if (holdTimer_ != nullptr) {
+    holdTimer_->setInterval(thresholdInMs);
   }
 }
 
@@ -311,7 +311,7 @@ int Input::holdThresholdMs() const { return holdThresholdMs_; }
 // Manual repeat APIs removed; per-key hold threshold controls keyDown timing
 
 void Input::onPressed() {
-  if (!button_) {
+  if (button_ == nullptr) {
     return;
   }
 
@@ -324,7 +324,7 @@ void Input::onPressed() {
   // toggle behavior on release. For normal keys, wait for threshold before
   // sending keyDown; zero threshold means immediate keyDown on press.
   if (!isToggleMode_) {
-    if (holdThresholdMs_ > 0 && holdTimer_) {
+    if (holdThresholdMs_ > 0 && (holdTimer_ != nullptr)) {
       holdTimer_->start(holdThresholdMs_);
     } else {
       // zero threshold -> immediate keyDown
@@ -340,7 +340,7 @@ void Input::onPressed() {
 
 void Input::onHoldTimeout() {
   // When hold threshold elapses, send a single keyDown for non-toggle keys.
-  if (!isPressed_ || isToggleMode_ || !holdTimer_) {
+  if (!isPressed_ || isToggleMode_ || (holdTimer_ == nullptr)) {
     return;
   }
 
@@ -353,12 +353,12 @@ void Input::onHoldTimeout() {
 }
 
 void Input::onReleased() {
-  if (!button_) {
+  if (button_ == nullptr) {
     return;
   }
 
   // Stop pending hold detection
-  if (holdTimer_ && holdTimer_->isActive()) {
+  if ((holdTimer_ != nullptr) && holdTimer_->isActive()) {
     holdTimer_->stop();
   }
 
@@ -414,9 +414,9 @@ void Input::onToggled(bool checked) {
 
 void Input::tearDownConnections() {
   // Stop threshold detection timer
-  if (holdTimer_) {
+  if (holdTimer_ != nullptr) {
     holdTimer_->stop();
-    if (holdTimerConnection_) {
+    if (holdTimerConnection_ != nullptr) {
       QObject::disconnect(holdTimerConnection_);
       holdTimerConnection_ = QMetaObject::Connection();
     }
@@ -424,24 +424,24 @@ void Input::tearDownConnections() {
   }
 
   // Stop fallback repeat timer as well
-  if (repeatTimer_) {
+  if (repeatTimer_ != nullptr) {
     repeatTimer_->stop();
-    if (repeatTimerConnection_) {
+    if (repeatTimerConnection_ != nullptr) {
       QObject::disconnect(repeatTimerConnection_);
       repeatTimerConnection_ = QMetaObject::Connection();
     }
     repeatTimer_ = nullptr;
   }
 
-  if (pressedConnection_) {
+  if (pressedConnection_ != nullptr) {
     QObject::disconnect(pressedConnection_);
     pressedConnection_ = QMetaObject::Connection();
   }
-  if (releasedConnection_) {
+  if (releasedConnection_ != nullptr) {
     QObject::disconnect(releasedConnection_);
     releasedConnection_ = QMetaObject::Connection();
   }
-  if (actionToggledConnection_) {
+  if (actionToggledConnection_ != nullptr) {
     QObject::disconnect(actionToggledConnection_);
     actionToggledConnection_ = QMetaObject::Connection();
   }

@@ -81,7 +81,7 @@ public:
   [[nodiscard]] Element addKey(backend::Key key, int row, int column,
                                float widthAsUnit = 1.0F,
                                float heightAsUnit = 1.0F, bool toggle = false,
-                               int holdThresholdMs = 300);
+                               int holdThresholdMs = DEFAULT_HOLD_THRESHOLD);
 
 private:
   backend::InputBackend *backend_;
@@ -109,7 +109,7 @@ public:
    */
   void addKey(backend::Key key, float widthAsUnit = 1.0F,
               float heightAsUnit = 1.0F, bool toggle = false,
-              int holdThresholdMs = 300) {
+              int holdThresholdMs = DEFAULT_HOLD_THRESHOLD) {
     elements_.push_back(builder_.addKey(key, currentRow_, currentCol_++,
                                         widthAsUnit, heightAsUnit, toggle,
                                         holdThresholdMs));
@@ -118,7 +118,7 @@ public:
   // Convenience overload: allow passing 'toggle' as the third parameter
   // (e.g., addKey(key, width, true) to make the key toggle on click).
   void addKey(backend::Key key, float widthAsUnit, bool toggle,
-              int holdThresholdMs = 300) {
+              int holdThresholdMs = DEFAULT_HOLD_THRESHOLD) {
     elements_.push_back(builder_.addKey(key, currentRow_, currentCol_++,
                                         widthAsUnit, 1.0F, toggle,
                                         holdThresholdMs));

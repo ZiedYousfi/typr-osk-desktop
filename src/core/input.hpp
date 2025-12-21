@@ -10,6 +10,9 @@
 #include <QTimer>
 #include <functional>
 
+#define DEFAULT_HOLD_THRESHOLD 300
+#define DEFAULT_REPEAT_INTERVAL 80
+
 class QAction;
 
 namespace core {
@@ -85,7 +88,7 @@ public:
    * (keyDown+keyUp on release), while holding longer than 300 ms will send a
    * single keyDown when the threshold is crossed and a keyUp on release.
    */
-  void setHoldThresholdMs(int ms);
+  void setHoldThresholdMs(int thresholdInMs);
   [[nodiscard]] int holdThresholdMs() const;
 
 private:
@@ -129,7 +132,8 @@ private:
   // Hold threshold configuration and transient state
   // Default is 300 ms before sending keyDown; short presses are taps.
   int holdThresholdMs_{
-      300}; // milliseconds; threshold before sending keyDown (default: 300 ms)
+      DEFAULT_HOLD_THRESHOLD}; // milliseconds; threshold before sending keyDown
+                               // (default: 300 ms)
 
   // Transient state
   bool isPressed_{false}; // true while mouse button is down
@@ -144,7 +148,7 @@ private:
   // controlled internally; default repeat interval is 80 ms.
   QTimer *repeatTimer_{nullptr};
   QMetaObject::Connection repeatTimerConnection_;
-  int repeatIntervalMs_{80};
+  int repeatIntervalMs_{DEFAULT_REPEAT_INTERVAL};
 
   // Stored connections so move / reattachment can disconnect/reconnect safely
   QMetaObject::Connection pressedConnection_;

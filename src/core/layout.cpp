@@ -1,6 +1,9 @@
 #include "layout.hpp"
 #include <algorithm>
 #include <map>
+
+#define DEFAULT_SIZE_STRETCH_MULTIPLIER 100
+
 namespace layout {
 
 Element ElementBuilder::addKey(backend::Key key, int row, int column,
@@ -59,7 +62,7 @@ QVBoxLayout *toQtLayout(const std::vector<Element> &elements) {
         // Use stretch factors for proportional resizing.
         // We multiply by 100 to handle fractional units (e.g., 1.25, 1.5) as
         // integers.
-        int hStretch = static_cast<int>(element->widthAsUnit() * 100);
+        int hStretch = static_cast<int>(element->widthAsUnit() * DEFAULT_SIZE_STRETCH_MULTIPLIER);
 
         // Set policy to Expanding in both directions
         btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -76,7 +79,7 @@ QVBoxLayout *toQtLayout(const std::vector<Element> &elements) {
     }
 
     // Apply vertical stretch to the row layout
-    int vStretch = static_cast<int>(maxRowHeightUnit * 100);
+    int vStretch = static_cast<int>(maxRowHeightUnit * DEFAULT_SIZE_STRETCH_MULTIPLIER);
     mainLayout->addLayout(rowLayout.release(), vStretch);
   }
 
