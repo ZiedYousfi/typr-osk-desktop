@@ -49,7 +49,7 @@ inc_dirs = include_directories('src')
 deps = [qt6_dep]
 
 if host_machine.system() == 'darwin'
-  add_languages('objcpp')
+  add_languages('objcpp', native : false)
   sources += 'src/backend/backend_macos.mm'
   sources += 'src/ui/widgets_macos.mm'
 
