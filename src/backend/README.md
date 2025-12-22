@@ -28,6 +28,23 @@ The overarching goal is consistent across backends: produce events that behave l
 
 ## Platform Implementation Details
 
+### OutputListener (global keyboard monitoring)
+
+An `OutputListener` has been added to the backend to provide a cross-platform, best-effort way to monitor global keyboard output (what the user types). The listener invokes a callback with four parameters: the produced Unicode codepoint (0 if none), a `Key` enum mapping for the physical key (or `Key::Unknown`), the active `Modifier` bitmask, and a boolean indicating whether the event was a key press (true) or release (false).
+
+Platform support and notes:
+
+- Windows: implemented using a low-level keyboard hook (`WH_KEYBOARD_LL`) and `ToUnicodeEx` for Unicode extraction.
+- macOS: implemented with a CGEvent tap (`CGEventTapCreate`) and `CGEventKeyboardGetUnicodeString`. Input Monitoring permission may be required; the listener will fail to start if the system denies it.
+- Linux (X11): implemented using XInput2 raw events (XI_RawKeyPress / XI_RawKeyRelease) and XKB lookups for key-to-keysym/character mapping. This requires XInput2; if XInput2 is not available the listener will not start. Wayland is not supported by the current implementation.
+- Behaviour: the implementation is intentionally lightweight (complex IME/dead-key handling is not attempted). It focuses on ASCII/BMP printable characters and provides a physical key mapping consistent with the InputBackend's layout-aware mapping.
+
+Usage: construct an `OutputListener` and call `startListening(callback)` to begin receiving events and `stopListening()` to stop. The callback signature is:
+
+`std::function<void(char32_t codepoint, backend::Key key, backend::Modifier mods, bool pressed)>`.
+
+Note: the listener is designed to be low-noise (noisy logging is off by default).
+
 ### macOS (`input_macos.mm`)
 
 We use `TISCopyCurrentKeyboardLayoutInputSource` and `UCKeyTranslate` to perform the layout scanning. This allows us to discover the `CGKeyCode` for every character. For complex inputs or cases where translation is preferred, we still support direct Unicode injection via `CGEventKeyboardSetUnicodeString`, but we prioritize physical key events to preserve native OS behavior (like keyboard shortcuts).
@@ -145,7 +162,7 @@ Use `type()` and `capabilities()` at runtime to decide how to drive input for ro
   - Direct Unicode injection (`typeText`) is not implemented for uinput (layout-aware mapping would be required).
 
 - Linux X11 / Wayland
-  - These are platform variants that may be implemented in the future (`BackendType::LinuxX11`, `BackendType::LinuxWayland`). An X11 implementation would typically use XTest or similar and may have its own permission/visibility constraints.
+  - The project now includes an X11-based OutputListener (using XInput2) for global key monitoring on X11 systems. Wayland global key monitoring is not supported by this listener (compositor APIs restrict global input monitoring). If XInput2 is not available at runtime the listener will not start. Injection backends (uinput or others) remain available for HID-level simulation and text injection where supported.
 
 ### Keys, Modifiers & Utilities
 
@@ -161,7 +178,7 @@ Use `type()` and `capabilities()` at runtime to decide how to drive input for ro
 
 ### Debug logging
 
-The input backends include optional debug logging that can be enabled at runtime. To enable detailed backend logs (which show whether a keystroke used a mapped physical key event or direct Unicode injection, virtual-key codes, scancodes, modifiers, and other decision points) set the environment variable `TYPR_OSK_DEBUG_BACKEND` to a non-empty value (for example `TYPR_OSK_DEBUG_BACKEND=1`) before launching the application. These logs are intentionally off by default to avoid noisy output during normal runs.
+The input backends and the OutputListener include optional debug logging that can be enabled at runtime. To enable detailed backend logs (which show whether a keystroke used a mapped physical key event or direct Unicode injection, virtual-key codes, scancodes, modifiers, layout discovery, OutputListener events, and other decision points) set the environment variable `TYPR_OSK_DEBUG_BACKEND` to a non-empty value (for example `TYPR_OSK_DEBUG_BACKEND=1`) before launching the application. These logs are intentionally off by default to avoid noisy output during normal runs.
 
 ## Advantages of This Approach
 

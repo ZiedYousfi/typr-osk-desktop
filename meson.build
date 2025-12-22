@@ -49,8 +49,9 @@ inc_dirs = include_directories('src')
 deps = [qt6_dep]
 
 if host_machine.system() == 'darwin'
-  add_languages('objcpp', native : false)
+  add_languages('objcpp', native: false)
   sources += 'src/backend/backend_macos.mm'
+  sources += 'src/backend/output_listener_macos.mm'
   sources += 'src/ui/widgets_macos.mm'
 
   # macOS frameworks for input injection
@@ -65,10 +66,17 @@ endif
 
 if host_machine.system() == 'linux'
   sources += 'src/backend/backend_uinput.cpp'
+  sources += 'src/backend/output_listener_x11.cpp'
+  x11_dep = dependency('x11', required: false)
+  xi_dep = dependency('xi', required: false)
+  if x11_dep.found() and xi_dep.found()
+    deps += [x11_dep, xi_dep]
+  endif
 endif
 
 if host_machine.system() == 'windows'
   sources += 'src/backend/backend_windows.cpp'
+  sources += 'src/backend/output_listener_windows.cpp'
   sources += 'src/ui/widgets_windows.cpp'
 endif
 

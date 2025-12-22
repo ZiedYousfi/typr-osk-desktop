@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -241,6 +242,38 @@ public:
 
   // Set delay between key events in tap/combo (microseconds)
   void setKeyDelay(uint32_t delayUs);
+
+private:
+  struct Impl;
+  std::unique_ptr<Impl> m_impl;
+};
+
+// OutputListener: listens to global keyboard events (keys down/up and produced
+// Unicode output).
+class OutputListener {
+public:
+  // Callback invoked for each key event. Parameters:
+  //  - Unicode codepoint produced by the event (0 if none or non-printable)
+  //  - Mapped physical Key (Key::Unknown if unknown)
+  //  - Current modifier state
+  //  - true for key press, false for key release
+  using Callback = std::function<void(char32_t codepoint, Key key,
+                                      Modifier mods, bool pressed)>;
+
+  OutputListener();
+  ~OutputListener();
+
+  OutputListener(const OutputListener &) = delete;
+  OutputListener &operator=(const OutputListener &) = delete;
+  OutputListener(OutputListener &&) noexcept;
+  OutputListener &operator=(OutputListener &&) noexcept;
+
+  // Start listening to global keyboard events. Returns true on success.
+  bool startListening(Callback cb);
+  // Stop listening. Safe to call from any thread.
+  void stopListening();
+  // Whether the listener is currently active.
+  [[nodiscard]] bool isListening() const;
 
 private:
   struct Impl;
