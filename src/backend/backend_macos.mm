@@ -5,113 +5,269 @@
 #include <ApplicationServices/ApplicationServices.h>
 #include <Carbon/Carbon.h>
 #import <Foundation/Foundation.h>
-#include <thread>
 #include <chrono>
+#include <thread>
 #include <unordered_map>
 
 namespace backend {
 
 namespace {
 
-CGKeyCode keyToMacKeyCode(Key key) {
-  static const std::unordered_map<Key, CGKeyCode> map = {
-    // Letters
-    {Key::A, kVK_ANSI_A}, {Key::B, kVK_ANSI_B}, {Key::C, kVK_ANSI_C},
-    {Key::D, kVK_ANSI_D}, {Key::E, kVK_ANSI_E}, {Key::F, kVK_ANSI_F},
-    {Key::G, kVK_ANSI_G}, {Key::H, kVK_ANSI_H}, {Key::I, kVK_ANSI_I},
-    {Key::J, kVK_ANSI_J}, {Key::K, kVK_ANSI_K}, {Key::L, kVK_ANSI_L},
-    {Key::M, kVK_ANSI_M}, {Key::N, kVK_ANSI_N}, {Key::O, kVK_ANSI_O},
-    {Key::P, kVK_ANSI_P}, {Key::Q, kVK_ANSI_Q}, {Key::R, kVK_ANSI_R},
-    {Key::S, kVK_ANSI_S}, {Key::T, kVK_ANSI_T}, {Key::U, kVK_ANSI_U},
-    {Key::V, kVK_ANSI_V}, {Key::W, kVK_ANSI_W}, {Key::X, kVK_ANSI_X},
-    {Key::Y, kVK_ANSI_Y}, {Key::Z, kVK_ANSI_Z},
-    // Numbers
-    {Key::Num0, kVK_ANSI_0}, {Key::Num1, kVK_ANSI_1}, {Key::Num2, kVK_ANSI_2},
-    {Key::Num3, kVK_ANSI_3}, {Key::Num4, kVK_ANSI_4}, {Key::Num5, kVK_ANSI_5},
-    {Key::Num6, kVK_ANSI_6}, {Key::Num7, kVK_ANSI_7}, {Key::Num8, kVK_ANSI_8},
-    {Key::Num9, kVK_ANSI_9},
-    // Function keys
-    {Key::F1, kVK_F1}, {Key::F2, kVK_F2}, {Key::F3, kVK_F3}, {Key::F4, kVK_F4},
-    {Key::F5, kVK_F5}, {Key::F6, kVK_F6}, {Key::F7, kVK_F7}, {Key::F8, kVK_F8},
-    {Key::F9, kVK_F9}, {Key::F10, kVK_F10}, {Key::F11, kVK_F11}, {Key::F12, kVK_F12},
-    {Key::F13, kVK_F13}, {Key::F14, kVK_F14}, {Key::F15, kVK_F15}, {Key::F16, kVK_F16},
-    {Key::F17, kVK_F17}, {Key::F18, kVK_F18}, {Key::F19, kVK_F19}, {Key::F20, kVK_F20},
-    // Control
-    {Key::Enter, kVK_Return}, {Key::Escape, kVK_Escape}, {Key::Backspace, kVK_Delete},
-    {Key::Tab, kVK_Tab}, {Key::Space, kVK_Space},
-    // Navigation
-    {Key::Left, kVK_LeftArrow}, {Key::Right, kVK_RightArrow},
-    {Key::Up, kVK_UpArrow}, {Key::Down, kVK_DownArrow},
-    {Key::Home, kVK_Home}, {Key::End, kVK_End},
-    {Key::PageUp, kVK_PageUp}, {Key::PageDown, kVK_PageDown},
-    {Key::Delete, kVK_ForwardDelete}, {Key::Insert, kVK_Help},
-    // Numpad
-    {Key::Numpad0, kVK_ANSI_Keypad0}, {Key::Numpad1, kVK_ANSI_Keypad1},
-    {Key::Numpad2, kVK_ANSI_Keypad2}, {Key::Numpad3, kVK_ANSI_Keypad3},
-    {Key::Numpad4, kVK_ANSI_Keypad4}, {Key::Numpad5, kVK_ANSI_Keypad5},
-    {Key::Numpad6, kVK_ANSI_Keypad6}, {Key::Numpad7, kVK_ANSI_Keypad7},
-    {Key::Numpad8, kVK_ANSI_Keypad8}, {Key::Numpad9, kVK_ANSI_Keypad9},
-    {Key::NumpadDivide, kVK_ANSI_KeypadDivide},
-    {Key::NumpadMultiply, kVK_ANSI_KeypadMultiply},
-    {Key::NumpadMinus, kVK_ANSI_KeypadMinus},
-    {Key::NumpadPlus, kVK_ANSI_KeypadPlus},
-    {Key::NumpadEnter, kVK_ANSI_KeypadEnter},
-    {Key::NumpadDecimal, kVK_ANSI_KeypadDecimal},
-    // Modifiers
-    {Key::ShiftLeft, kVK_Shift}, {Key::ShiftRight, kVK_RightShift},
-    {Key::CtrlLeft, kVK_Control}, {Key::CtrlRight, kVK_RightControl},
-    {Key::AltLeft, kVK_Option}, {Key::AltRight, kVK_RightOption},
-    {Key::SuperLeft, kVK_Command}, {Key::SuperRight, kVK_RightCommand},
-    {Key::CapsLock, kVK_CapsLock}, {Key::NumLock, kVK_ANSI_KeypadClear},
-    // Misc
-    {Key::Mute, kVK_Mute}, {Key::VolumeDown, kVK_VolumeDown}, {Key::VolumeUp, kVK_VolumeUp},
-    // Punctuation
-    {Key::Grave, kVK_ANSI_Grave}, {Key::Minus, kVK_ANSI_Minus}, {Key::Equal, kVK_ANSI_Equal},
-    {Key::LeftBracket, kVK_ANSI_LeftBracket}, {Key::RightBracket, kVK_ANSI_RightBracket},
-    {Key::Backslash, kVK_ANSI_Backslash}, {Key::Semicolon, kVK_ANSI_Semicolon},
-    {Key::Apostrophe, kVK_ANSI_Quote}, {Key::Comma, kVK_ANSI_Comma},
-    {Key::Period, kVK_ANSI_Period}, {Key::Slash, kVK_ANSI_Slash},
-  };
-  
-  auto it = map.find(key);
-  return (it != map.end()) ? it->second : UINT16_MAX;
-}
+// Key map moved into Impl and initialized per-instance.
 
 CGEventFlags modifierToFlags(Modifier mod) {
   CGEventFlags flags = 0;
-  if (hasModifier(mod, Modifier::Shift)) flags |= kCGEventFlagMaskShift;
-  if (hasModifier(mod, Modifier::Ctrl)) flags |= kCGEventFlagMaskControl;
-  if (hasModifier(mod, Modifier::Alt)) flags |= kCGEventFlagMaskAlternate;
-  if (hasModifier(mod, Modifier::Super)) flags |= kCGEventFlagMaskCommand;
-  if (hasModifier(mod, Modifier::CapsLock)) flags |= kCGEventFlagMaskAlphaShift;
+  if (hasModifier(mod, Modifier::Shift)) {
+    flags |= kCGEventFlagMaskShift;
+  }
+  if (hasModifier(mod, Modifier::Ctrl)) {
+    flags |= kCGEventFlagMaskControl;
+  }
+  if (hasModifier(mod, Modifier::Alt)) {
+    flags |= kCGEventFlagMaskAlternate;
+  }
+  if (hasModifier(mod, Modifier::Super)) {
+    flags |= kCGEventFlagMaskCommand;
+  }
+  if (hasModifier(mod, Modifier::CapsLock)) {
+    flags |= kCGEventFlagMaskAlphaShift;
+  }
   return flags;
 }
 
 } // namespace
 
 struct InputBackend::Impl {
+  // Unicode and UTF-16 surrogate pair constants
+  static constexpr char32_t kUnicodeMaxBMP = 0xFFFF;
+  static constexpr char32_t kUnicodeMax = 0x10FFFF;
+  static constexpr char32_t kUnicodeSurrogateOffset = 0x10000;
+  static constexpr char32_t kUnicodeHighSurrogateBase = 0xD800;
+  static constexpr char32_t kUnicodeLowSurrogateBase = 0xDC00;
+  static constexpr char32_t kUnicodeSurrogateMask = 0x3FF;
   CGEventSourceRef eventSource{nullptr};
   Modifier currentMods{Modifier::None};
-  uint32_t keyDelayUs{1000};
+  static constexpr uint32_t kDefaultKeyDelayUs = 1000;
+  uint32_t keyDelayUs{kDefaultKeyDelayUs};
   bool ready{false};
 
-  Impl() {
-    eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-    ready = AXIsProcessTrustedWithOptions(nullptr);
+  // Map from our Key enum to macOS keycodes
+  std::unordered_map<Key, CGKeyCode> keyMap;
+
+  Impl()
+      : eventSource(CGEventSourceCreate(kCGEventSourceStateHIDSystemState)),
+        ready(AXIsProcessTrustedWithOptions(nullptr) != 0U) {
+    initKeyMap();
   }
 
   ~Impl() {
-    if (eventSource) {
+    if (eventSource != nullptr) {
       CFRelease(eventSource);
     }
   }
 
-  bool sendKey(Key key, bool down) {
-    CGKeyCode keyCode = keyToMacKeyCode(key);
-    if (keyCode == UINT16_MAX) return false;
+  Impl(const Impl &) = delete;
+  Impl &operator=(const Impl &) = delete;
+
+  Impl(Impl &&other) noexcept
+      : eventSource(other.eventSource), currentMods(other.currentMods),
+        keyDelayUs(other.keyDelayUs), ready(other.ready),
+        keyMap(std::move(other.keyMap)) {
+    other.eventSource = nullptr;
+    other.currentMods = Modifier::None;
+    other.keyDelayUs = 0;
+    other.ready = false;
+  }
+
+  Impl &operator=(Impl &&other) noexcept {
+    if (this == &other) {
+      return *this;
+    }
+    if (eventSource != nullptr) {
+      CFRelease(eventSource);
+    }
+    eventSource = other.eventSource;
+    currentMods = other.currentMods;
+    keyDelayUs = other.keyDelayUs;
+    ready = other.ready;
+    keyMap = std::move(other.keyMap);
+
+    other.eventSource = nullptr;
+    other.currentMods = Modifier::None;
+    other.keyDelayUs = 0;
+    other.ready = false;
+
+    return *this;
+  }
+
+  void initKeyMap() {
+    TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
+    if (currentKeyboard == nullptr) {
+      return;
+    }
+
+    const auto *layoutData = static_cast<CFDataRef>(TISGetInputSourceProperty(
+        currentKeyboard, kTISPropertyUnicodeKeyLayoutData));
+    if (layoutData == nullptr) {
+      CFRelease(currentKeyboard);
+      return;
+    }
+
+    const auto *keyboardLayout = static_cast<const UCKeyboardLayout *>(
+        static_cast<const void *>(CFDataGetBytePtr(layoutData)));
+
+    UInt32 keysDown = 0;
+    static constexpr int kMaxKeyCode = 128;
+    static constexpr size_t kUnicodeStringSize = 4;
+    for (int keyCode = 0; keyCode < kMaxKeyCode; keyCode++) {
+      std::array<UniChar, kUnicodeStringSize> unicodeString{};
+      UniCharCount actualStringLength = 0;
+
+      OSStatus status = UCKeyTranslate(
+          keyboardLayout, keyCode, kUCKeyActionDisplay,
+          0, // no modifier
+          LMGetKbdType(), kUCKeyTranslateNoDeadKeysBit, &keysDown,
+          static_cast<UInt32>(unicodeString.size()), &actualStringLength,
+          static_cast<UniChar *>(unicodeString.data()));
+
+      if (status == noErr && actualStringLength > 0) {
+        UniChar firstUnicodeChar = unicodeString[0];
+        std::string mappedKeyString;
+        static constexpr UniChar kAsciiSpace = ' ';
+        static constexpr UniChar kAsciiTab = '\t';
+        static constexpr UniChar kAsciiCR = '\r';
+        static constexpr UniChar kAsciiLF = '\n';
+        static constexpr UniChar kAsciiMax = 0x80;
+        if (firstUnicodeChar == kAsciiSpace) {
+          mappedKeyString = "space"; // map space to canonical name
+        } else if (firstUnicodeChar == kAsciiTab) {
+          mappedKeyString = "tab";
+        } else if (firstUnicodeChar == kAsciiCR ||
+                   firstUnicodeChar == kAsciiLF) {
+          mappedKeyString = "enter";
+        } else if (firstUnicodeChar < kAsciiMax) {
+          mappedKeyString = std::string(1, static_cast<char>(firstUnicodeChar));
+        } else {
+          // non-ASCII mapping isn't covered by `Key` enum; skip
+          continue;
+        }
+
+        Key mappedKeyEnum = stringToKey(mappedKeyString);
+        if (mappedKeyEnum != Key::Unknown) {
+          if (keyMap.find(mappedKeyEnum) == keyMap.end()) {
+            keyMap[mappedKeyEnum] = static_cast<CGKeyCode>(keyCode);
+          }
+        }
+      }
+    }
+
+    // Fallback explicit mappings for common non-printable keys / modifiers
+    auto setIfMissing = [this](Key keyToSet, CGKeyCode code) {
+      if (this->keyMap.find(keyToSet) == this->keyMap.end()) {
+        this->keyMap[keyToSet] = code;
+      }
+    };
+
+    // Common keys
+    setIfMissing(Key::Space, kVK_Space);
+    setIfMissing(Key::Enter, kVK_Return);
+    setIfMissing(Key::Tab, kVK_Tab);
+    setIfMissing(Key::Backspace, kVK_Delete); // Backspace key
+    setIfMissing(Key::Delete, kVK_ForwardDelete);
+    setIfMissing(Key::Escape, kVK_Escape);
+    setIfMissing(Key::Left, kVK_LeftArrow);
+    setIfMissing(Key::Right, kVK_RightArrow);
+    setIfMissing(Key::Up, kVK_UpArrow);
+    setIfMissing(Key::Down, kVK_DownArrow);
+    setIfMissing(Key::Home, kVK_Home);
+    setIfMissing(Key::End, kVK_End);
+    setIfMissing(Key::PageUp, kVK_PageUp);
+    setIfMissing(Key::PageDown, kVK_PageDown);
+
+    // Modifiers
+    setIfMissing(Key::ShiftLeft, kVK_Shift);
+    setIfMissing(Key::ShiftRight, kVK_RightShift);
+    setIfMissing(Key::CtrlLeft, kVK_Control);
+    setIfMissing(Key::CtrlRight, kVK_RightControl);
+    setIfMissing(Key::AltLeft, kVK_Option);
+    setIfMissing(Key::AltRight, kVK_RightOption);
+    setIfMissing(Key::SuperLeft, kVK_Command);
+    setIfMissing(Key::SuperRight, kVK_RightCommand);
+    setIfMissing(Key::CapsLock, kVK_CapsLock);
+
+    // Function keys
+    setIfMissing(Key::F1, kVK_F1);
+    setIfMissing(Key::F2, kVK_F2);
+    setIfMissing(Key::F3, kVK_F3);
+    setIfMissing(Key::F4, kVK_F4);
+    setIfMissing(Key::F5, kVK_F5);
+    setIfMissing(Key::F6, kVK_F6);
+    setIfMissing(Key::F7, kVK_F7);
+    setIfMissing(Key::F8, kVK_F8);
+    setIfMissing(Key::F9, kVK_F9);
+    setIfMissing(Key::F10, kVK_F10);
+    setIfMissing(Key::F11, kVK_F11);
+    setIfMissing(Key::F12, kVK_F12);
+    setIfMissing(Key::F13, kVK_F13);
+    setIfMissing(Key::F14, kVK_F14);
+    setIfMissing(Key::F15, kVK_F15);
+    setIfMissing(Key::F16, kVK_F16);
+    setIfMissing(Key::F17, kVK_F17);
+    setIfMissing(Key::F18, kVK_F18);
+    setIfMissing(Key::F19, kVK_F19);
+    setIfMissing(Key::F20, kVK_F20);
+
+    // Numpad
+    setIfMissing(Key::Numpad0, kVK_ANSI_Keypad0);
+    setIfMissing(Key::Numpad1, kVK_ANSI_Keypad1);
+    setIfMissing(Key::Numpad2, kVK_ANSI_Keypad2);
+    setIfMissing(Key::Numpad3, kVK_ANSI_Keypad3);
+    setIfMissing(Key::Numpad4, kVK_ANSI_Keypad4);
+    setIfMissing(Key::Numpad5, kVK_ANSI_Keypad5);
+    setIfMissing(Key::Numpad6, kVK_ANSI_Keypad6);
+    setIfMissing(Key::Numpad7, kVK_ANSI_Keypad7);
+    setIfMissing(Key::Numpad8, kVK_ANSI_Keypad8);
+    setIfMissing(Key::Numpad9, kVK_ANSI_Keypad9);
+    setIfMissing(Key::NumpadDivide, kVK_ANSI_KeypadDivide);
+    setIfMissing(Key::NumpadMultiply, kVK_ANSI_KeypadMultiply);
+    setIfMissing(Key::NumpadMinus, kVK_ANSI_KeypadMinus);
+    setIfMissing(Key::NumpadPlus, kVK_ANSI_KeypadPlus);
+    setIfMissing(Key::NumpadEnter, kVK_ANSI_KeypadEnter);
+    setIfMissing(Key::NumpadDecimal, kVK_ANSI_KeypadDecimal);
+
+    // Punctuation (ANSI)
+    setIfMissing(Key::Grave, kVK_ANSI_Grave);
+    setIfMissing(Key::Minus, kVK_ANSI_Minus);
+    setIfMissing(Key::Equal, kVK_ANSI_Equal);
+    setIfMissing(Key::LeftBracket, kVK_ANSI_LeftBracket);
+    setIfMissing(Key::RightBracket, kVK_ANSI_RightBracket);
+    setIfMissing(Key::Backslash, kVK_ANSI_Backslash);
+    setIfMissing(Key::Semicolon, kVK_ANSI_Semicolon);
+    setIfMissing(Key::Apostrophe, kVK_ANSI_Quote);
+    setIfMissing(Key::Comma, kVK_ANSI_Comma);
+    setIfMissing(Key::Period, kVK_ANSI_Period);
+    setIfMissing(Key::Slash, kVK_ANSI_Slash);
+
+    CFRelease(currentKeyboard);
+  }
+
+  [[nodiscard]] CGKeyCode macKeyCodeFor(Key key) const {
+    auto keyMapIt = keyMap.find(key);
+    static constexpr CGKeyCode kInvalidKeyCode = UINT16_MAX;
+    return (keyMapIt != keyMap.end()) ? keyMapIt->second : kInvalidKeyCode;
+  }
+
+  bool sendKey(Key key, bool down) const {
+    CGKeyCode keyCode = macKeyCodeFor(key);
+    static constexpr CGKeyCode kInvalidKeyCode = UINT16_MAX;
+    if (keyCode == kInvalidKeyCode) {
+      return false;
+    }
 
     CGEventRef event = CGEventCreateKeyboardEvent(eventSource, keyCode, down);
-    if (!event) return false;
+    if (event == nullptr) {
+      return false;
+    }
 
     // Apply current modifier state
     CGEventSetFlags(event, modifierToFlags(currentMods));
@@ -120,48 +276,61 @@ struct InputBackend::Impl {
     return true;
   }
 
-  bool typeUnicode(const std::u32string& text) {
-    if (text.empty()) return true;
+  [[nodiscard]] bool typeUnicode(const std::u32string &text) const {
+    if (text.empty()) {
+      return true;
+    }
 
     // Convert to UTF-16
     std::vector<UniChar> utf16;
-    for (char32_t cp : text) {
-      if (cp <= 0xFFFF) {
-        utf16.push_back(static_cast<UniChar>(cp));
-      } else if (cp <= 0x10FFFF) {
-        cp -= 0x10000;
-        utf16.push_back(static_cast<UniChar>(0xD800 | (cp >> 10)));
-        utf16.push_back(static_cast<UniChar>(0xDC00 | (cp & 0x3FF)));
+    for (char32_t codepoint : text) {
+      if (codepoint <= kUnicodeMaxBMP) {
+        utf16.push_back(static_cast<UniChar>(codepoint));
+      } else if (codepoint <= kUnicodeMax) {
+        char32_t codepointTmp = codepoint - kUnicodeSurrogateOffset;
+        utf16.push_back(
+            static_cast<UniChar>(kUnicodeHighSurrogateBase |
+                                 (static_cast<uint32_t>(codepointTmp) >> 10)));
+        utf16.push_back(static_cast<UniChar>(
+            kUnicodeLowSurrogateBase |
+            (static_cast<uint32_t>(codepointTmp) & kUnicodeSurrogateMask)));
       }
     }
 
     // macOS limit: 20 characters per event
-    constexpr size_t kMaxChars = 20;
+    static constexpr size_t kMaxCharsPerEvent = 20;
 
-    for (size_t i = 0; i < utf16.size(); i += kMaxChars) {
-      size_t len = std::min(kMaxChars, utf16.size() - i);
+    for (size_t utf16Index = 0; utf16Index < utf16.size();
+         utf16Index += kMaxCharsPerEvent) {
+      size_t chunkLength =
+          std::min(kMaxCharsPerEvent, utf16.size() - utf16Index);
 
-      CGEventRef down = CGEventCreateKeyboardEvent(eventSource, 0, true);
-      CGEventRef up = CGEventCreateKeyboardEvent(eventSource, 0, false);
-      if (!down || !up) {
-        if (down) CFRelease(down);
-        if (up) CFRelease(up);
+      CGEventRef eventDown = CGEventCreateKeyboardEvent(eventSource, 0, true);
+      CGEventRef eventUp = CGEventCreateKeyboardEvent(eventSource, 0, false);
+      if ((eventDown == nullptr) || (eventUp == nullptr)) {
+        if (eventDown != nullptr) {
+          CFRelease(eventDown);
+        }
+        if (eventUp != nullptr) {
+          CFRelease(eventUp);
+        }
         return false;
       }
 
-      CGEventKeyboardSetUnicodeString(down, len, utf16.data() + i);
-      CGEventKeyboardSetUnicodeString(up, len, utf16.data() + i);
+      CGEventKeyboardSetUnicodeString(eventDown, chunkLength,
+                                      &utf16[utf16Index]);
+      CGEventKeyboardSetUnicodeString(eventUp, chunkLength, &utf16[utf16Index]);
 
-      CGEventPost(kCGHIDEventTap, down);
-      CGEventPost(kCGHIDEventTap, up);
+      CGEventPost(kCGHIDEventTap, eventDown);
+      CGEventPost(kCGHIDEventTap, eventUp);
 
-      CFRelease(down);
-      CFRelease(up);
+      CFRelease(eventDown);
+      CFRelease(eventUp);
     }
     return true;
   }
 
-  void delay() {
+  void delay() const {
     if (keyDelayUs > 0) {
       std::this_thread::sleep_for(std::chrono::microseconds(keyDelayUs));
     }
@@ -170,43 +339,54 @@ struct InputBackend::Impl {
 
 InputBackend::InputBackend() : m_impl(std::make_unique<Impl>()) {}
 InputBackend::~InputBackend() = default;
-InputBackend::InputBackend(InputBackend&&) noexcept = default;
-InputBackend& InputBackend::operator=(InputBackend&&) noexcept = default;
+InputBackend::InputBackend(InputBackend &&) noexcept = default;
+InputBackend &InputBackend::operator=(InputBackend &&) noexcept = default;
 
 BackendType InputBackend::type() const { return BackendType::MacOS; }
 
 Capabilities InputBackend::capabilities() const {
   return {
-    .canInjectKeys = m_impl->ready,
-    .canInjectText = m_impl->ready,
-    .canSimulateHID = false,  // macOS CGEvent is not true HID
-    .supportsKeyRepeat = true,
-    .needsAccessibilityPerm = true,
-    .needsInputMonitoringPerm = false,
-    .needsUinputAccess = false,
+      .canInjectKeys = m_impl->ready,
+      .canInjectText = m_impl->ready,
+      .canSimulateHID = false, // macOS CGEvent is not true HID
+      .supportsKeyRepeat = true,
+      .needsAccessibilityPerm = true,
+      .needsInputMonitoringPerm = false,
+      .needsUinputAccess = false,
   };
 }
 
 bool InputBackend::isReady() const { return m_impl->ready; }
 
 bool InputBackend::requestPermissions() {
-  NSDictionary* opts = @{(__bridge NSString*)kAXTrustedCheckOptionPrompt: @YES};
-  m_impl->ready = AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)opts);
+  NSDictionary *opts =
+      @{(__bridge NSString *)kAXTrustedCheckOptionPrompt : @YES};
+  m_impl->ready =
+      (AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)opts) != 0U);
   return m_impl->ready;
 }
 
 bool InputBackend::keyDown(Key key) {
   // Update modifier state if pressing a modifier
   switch (key) {
-    case Key::ShiftLeft: case Key::ShiftRight:
-      m_impl->currentMods = m_impl->currentMods | Modifier::Shift; break;
-    case Key::CtrlLeft: case Key::CtrlRight:
-      m_impl->currentMods = m_impl->currentMods | Modifier::Ctrl; break;
-    case Key::AltLeft: case Key::AltRight:
-      m_impl->currentMods = m_impl->currentMods | Modifier::Alt; break;
-    case Key::SuperLeft: case Key::SuperRight:
-      m_impl->currentMods = m_impl->currentMods | Modifier::Super; break;
-    default: break;
+  case Key::ShiftLeft:
+  case Key::ShiftRight:
+    m_impl->currentMods = m_impl->currentMods | Modifier::Shift;
+    break;
+  case Key::CtrlLeft:
+  case Key::CtrlRight:
+    m_impl->currentMods = m_impl->currentMods | Modifier::Ctrl;
+    break;
+  case Key::AltLeft:
+  case Key::AltRight:
+    m_impl->currentMods = m_impl->currentMods | Modifier::Alt;
+    break;
+  case Key::SuperLeft:
+  case Key::SuperRight:
+    m_impl->currentMods = m_impl->currentMods | Modifier::Super;
+    break;
+  default:
+    break;
   }
   return m_impl->sendKey(key, true);
 }
@@ -215,29 +395,40 @@ bool InputBackend::keyUp(Key key) {
   bool result = m_impl->sendKey(key, false);
   // Update modifier state if releasing a modifier
   switch (key) {
-    case Key::ShiftLeft: case Key::ShiftRight:
-      m_impl->currentMods = static_cast<Modifier>(
-        static_cast<uint8_t>(m_impl->currentMods) & ~static_cast<uint8_t>(Modifier::Shift));
-      break;
-    case Key::CtrlLeft: case Key::CtrlRight:
-      m_impl->currentMods = static_cast<Modifier>(
-        static_cast<uint8_t>(m_impl->currentMods) & ~static_cast<uint8_t>(Modifier::Ctrl));
-      break;
-    case Key::AltLeft: case Key::AltRight:
-      m_impl->currentMods = static_cast<Modifier>(
-        static_cast<uint8_t>(m_impl->currentMods) & ~static_cast<uint8_t>(Modifier::Alt));
-      break;
-    case Key::SuperLeft: case Key::SuperRight:
-      m_impl->currentMods = static_cast<Modifier>(
-        static_cast<uint8_t>(m_impl->currentMods) & ~static_cast<uint8_t>(Modifier::Super));
-      break;
-    default: break;
+  case Key::ShiftLeft:
+  case Key::ShiftRight:
+    m_impl->currentMods =
+        static_cast<Modifier>(static_cast<unsigned int>(m_impl->currentMods) &
+                              ~static_cast<unsigned int>(Modifier::Shift));
+    break;
+  case Key::CtrlLeft:
+  case Key::CtrlRight:
+    m_impl->currentMods =
+        static_cast<Modifier>(static_cast<unsigned int>(m_impl->currentMods) &
+                              ~static_cast<unsigned int>(Modifier::Ctrl));
+    break;
+  case Key::AltLeft:
+  case Key::AltRight:
+    m_impl->currentMods =
+        static_cast<Modifier>(static_cast<unsigned int>(m_impl->currentMods) &
+                              ~static_cast<unsigned int>(Modifier::Alt));
+    break;
+  case Key::SuperLeft:
+  case Key::SuperRight:
+    m_impl->currentMods =
+        static_cast<Modifier>(static_cast<unsigned int>(m_impl->currentMods) &
+                              ~static_cast<unsigned int>(Modifier::Super));
+    break;
+  default:
+    break;
   }
   return result;
 }
 
 bool InputBackend::tap(Key key) {
-  if (!keyDown(key)) return false;
+  if (!keyDown(key)) {
+    return false;
+  }
   m_impl->delay();
   return keyUp(key);
 }
@@ -245,67 +436,122 @@ bool InputBackend::tap(Key key) {
 Modifier InputBackend::activeModifiers() const { return m_impl->currentMods; }
 
 bool InputBackend::holdModifier(Modifier mod) {
-  bool ok = true;
-  if (hasModifier(mod, Modifier::Shift)) ok &= keyDown(Key::ShiftLeft);
-  if (hasModifier(mod, Modifier::Ctrl)) ok &= keyDown(Key::CtrlLeft);
-  if (hasModifier(mod, Modifier::Alt)) ok &= keyDown(Key::AltLeft);
-  if (hasModifier(mod, Modifier::Super)) ok &= keyDown(Key::SuperLeft);
-  return ok;
+  bool allModifiersPressed = true;
+  if (hasModifier(mod, Modifier::Shift)) {
+    allModifiersPressed &= keyDown(Key::ShiftLeft);
+  }
+  if (hasModifier(mod, Modifier::Ctrl)) {
+    allModifiersPressed &= keyDown(Key::CtrlLeft);
+  }
+  if (hasModifier(mod, Modifier::Alt)) {
+    allModifiersPressed &= keyDown(Key::AltLeft);
+  }
+  if (hasModifier(mod, Modifier::Super)) {
+    allModifiersPressed &= keyDown(Key::SuperLeft);
+  }
+  return allModifiersPressed;
 }
 
 bool InputBackend::releaseModifier(Modifier mod) {
-  bool ok = true;
-  if (hasModifier(mod, Modifier::Shift)) ok &= keyUp(Key::ShiftLeft);
-  if (hasModifier(mod, Modifier::Ctrl)) ok &= keyUp(Key::CtrlLeft);
-  if (hasModifier(mod, Modifier::Alt)) ok &= keyUp(Key::AltLeft);
-  if (hasModifier(mod, Modifier::Super)) ok &= keyUp(Key::SuperLeft);
-  return ok;
+  bool allModifiersReleased = true;
+  if (hasModifier(mod, Modifier::Shift)) {
+    allModifiersReleased &= keyUp(Key::ShiftLeft);
+  }
+  if (hasModifier(mod, Modifier::Ctrl)) {
+    allModifiersReleased &= keyUp(Key::CtrlLeft);
+  }
+  if (hasModifier(mod, Modifier::Alt)) {
+    allModifiersReleased &= keyUp(Key::AltLeft);
+  }
+  if (hasModifier(mod, Modifier::Super)) {
+    allModifiersReleased &= keyUp(Key::SuperLeft);
+  }
+  return allModifiersReleased;
 }
 
 bool InputBackend::releaseAllModifiers() {
-  return releaseModifier(Modifier::Shift | Modifier::Ctrl | Modifier::Alt | Modifier::Super);
+  return releaseModifier(Modifier::Shift | Modifier::Ctrl | Modifier::Alt |
+                         Modifier::Super);
 }
 
 bool InputBackend::combo(Modifier mods, Key key) {
-  if (!holdModifier(mods)) return false;
+  if (!holdModifier(mods)) {
+    return false;
+  }
   m_impl->delay();
-  bool ok = tap(key);
+  bool tapResult = tap(key);
   m_impl->delay();
   releaseModifier(mods);
-  return ok;
+  return tapResult;
 }
 
-bool InputBackend::typeText(const std::u32string& text) {
+bool InputBackend::typeText(const std::u32string &text) {
   return m_impl->typeUnicode(text);
 }
 
-bool InputBackend::typeText(const std::string& utf8Text) {
+bool InputBackend::typeText(const std::string &utf8Text) {
   std::u32string utf32;
-  size_t i = 0;
-  while (i < utf8Text.size()) {
-    char32_t cp = 0;
-    unsigned char c = utf8Text[i];
-    if ((c & 0x80) == 0) { cp = c; i += 1; }
-    else if ((c & 0xE0) == 0xC0) {
-      cp = (c & 0x1F) << 6;
-      if (i + 1 < utf8Text.size()) cp |= (utf8Text[i+1] & 0x3F);
-      i += 2;
+  size_t utf8Index = 0;
+  static constexpr unsigned char kUtf8Mask6 = 0x3F;
+  static constexpr unsigned char kUtf8Mask5 = 0x1F;
+  static constexpr unsigned char kUtf8Mask4 = 0x0F;
+  static constexpr unsigned char kUtf8Mask3 = 0x07;
+  static constexpr unsigned char kUtf8Mask7 = 0x80;
+  static constexpr unsigned char kUtf8Mask8 = 0xC0;
+  static constexpr unsigned char kUtf8Mask9 = 0xE0;
+  static constexpr unsigned char kUtf8Mask10 = 0xF0;
+  static constexpr unsigned char kUtf8Mask11 = 0xF8;
+  static constexpr unsigned int kUtf8Shift6 = 6;
+  static constexpr unsigned int kUtf8Shift12 = 12;
+  static constexpr unsigned int kUtf8Shift18 = 18;
+
+  while (utf8Index < utf8Text.size()) {
+    char32_t decodedCodepoint = 0;
+    auto utf8Char = static_cast<unsigned char>(utf8Text[utf8Index]);
+    if ((utf8Char & kUtf8Mask7) == 0) {
+      decodedCodepoint = utf8Char;
+      utf8Index += 1;
+    } else if ((utf8Char & kUtf8Mask9) == kUtf8Mask8) {
+      decodedCodepoint = (utf8Char & kUtf8Mask5) << kUtf8Shift6;
+      if (utf8Index + 1 < utf8Text.size()) {
+        decodedCodepoint |=
+            (static_cast<unsigned char>(utf8Text[utf8Index + 1]) & kUtf8Mask6);
+      }
+      utf8Index += 2;
+    } else if ((utf8Char & kUtf8Mask10) == kUtf8Mask9) {
+      decodedCodepoint = (utf8Char & kUtf8Mask4) << kUtf8Shift12;
+      if (utf8Index + 1 < utf8Text.size()) {
+        decodedCodepoint |=
+            (static_cast<unsigned char>(utf8Text[utf8Index + 1]) & kUtf8Mask6)
+            << kUtf8Shift6;
+      }
+      if (utf8Index + 2 < utf8Text.size()) {
+        decodedCodepoint |=
+            (static_cast<unsigned char>(utf8Text[utf8Index + 2]) & kUtf8Mask6);
+      }
+      utf8Index += 3;
+    } else if ((utf8Char & kUtf8Mask11) == kUtf8Mask10) {
+      decodedCodepoint = (utf8Char & kUtf8Mask3) << kUtf8Shift18;
+      if (utf8Index + 1 < utf8Text.size()) {
+        decodedCodepoint |=
+            (static_cast<unsigned char>(utf8Text[utf8Index + 1]) & kUtf8Mask6)
+            << kUtf8Shift12;
+      }
+      if (utf8Index + 2 < utf8Text.size()) {
+        decodedCodepoint |=
+            (static_cast<unsigned char>(utf8Text[utf8Index + 2]) & kUtf8Mask6)
+            << kUtf8Shift6;
+      }
+      if (utf8Index + 3 < utf8Text.size()) {
+        decodedCodepoint |=
+            (static_cast<unsigned char>(utf8Text[utf8Index + 3]) & kUtf8Mask6);
+      }
+      utf8Index += 4;
+    } else {
+      utf8Index += 1;
+      continue;
     }
-    else if ((c & 0xF0) == 0xE0) {
-      cp = (c & 0x0F) << 12;
-      if (i + 1 < utf8Text.size()) cp |= (utf8Text[i+1] & 0x3F) << 6;
-      if (i + 2 < utf8Text.size()) cp |= (utf8Text[i+2] & 0x3F);
-      i += 3;
-    }
-    else if ((c & 0xF8) == 0xF0) {
-      cp = (c & 0x07) << 18;
-      if (i + 1 < utf8Text.size()) cp |= (utf8Text[i+1] & 0x3F) << 12;
-      if (i + 2 < utf8Text.size()) cp |= (utf8Text[i+2] & 0x3F) << 6;
-      if (i + 3 < utf8Text.size()) cp |= (utf8Text[i+3] & 0x3F);
-      i += 4;
-    }
-    else { i += 1; continue; }
-    utf32.push_back(cp);
+    utf32.push_back(decodedCodepoint);
   }
   return typeText(utf32);
 }

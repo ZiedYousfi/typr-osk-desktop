@@ -1,65 +1,168 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <string>
 
 namespace backend {
 
-enum class Key : uint16_t {
+enum class Key : uint8_t {
   Unknown = 0,
   // Letters
-  A = 1, B, C, D, E, F, G, H, I, J, K, L, M,
-  N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+  A = 1,
+  B = 2,
+  C = 3,
+  D = 4,
+  E = 5,
+  F = 6,
+  G = 7,
+  H = 8,
+  I = 9,
+  J = 10,
+  K = 11,
+  L = 12,
+  M = 13,
+  N = 14,
+  O = 15,
+  P = 16,
+  Q = 17,
+  R = 18,
+  S = 19,
+  T = 20,
+  U = 21,
+  V = 22,
+  W = 23,
+  X = 24,
+  Y = 25,
+  Z = 26,
   // Numbers (main row)
-  Num0 = 33, Num1, Num2, Num3, Num4, Num5, Num6, Num7, Num8, Num9,
+  Num0 = 33,
+  Num1 = 34,
+  Num2 = 35,
+  Num3 = 36,
+  Num4 = 37,
+  Num5 = 38,
+  Num6 = 39,
+  Num7 = 40,
+  Num8 = 41,
+  Num9 = 42,
   // Function keys
-  F1 = 43, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
-  F13, F14, F15, F16, F17, F18, F19, F20,
+  F1 = 43,
+  F2 = 44,
+  F3 = 45,
+  F4 = 46,
+  F5 = 47,
+  F6 = 48,
+  F7 = 49,
+  F8 = 50,
+  F9 = 51,
+  F10 = 52,
+  F11 = 53,
+  F12 = 54,
+  F13 = 55,
+  F14 = 56,
+  F15 = 57,
+  F16 = 58,
+  F17 = 59,
+  F18 = 60,
+  F19 = 61,
+  F20 = 62,
   // Control keys
-  Enter = 63, Escape, Backspace, Tab, Space,
+  Enter = 63,
+  Escape = 64,
+  Backspace = 65,
+  Tab = 66,
+  Space = 67,
   // Navigation
-  Left = 68, Right, Up, Down, Home, End, PageUp, PageDown,
-  Delete, Insert, PrintScreen, ScrollLock, Pause,
+  Left = 68,
+  Right = 69,
+  Up = 70,
+  Down = 71,
+  Home = 72,
+  End = 73,
+  PageUp = 74,
+  PageDown = 75,
+  Delete = 76,
+  Insert = 77,
+  PrintScreen = 78,
+  ScrollLock = 79,
+  Pause = 80,
   // Numpad
-  NumpadDivide = 83, NumpadMultiply, NumpadMinus, NumpadPlus,
-  NumpadEnter, NumpadDecimal,
-  Numpad0, Numpad1, Numpad2, Numpad3, Numpad4,
-  Numpad5, Numpad6, Numpad7, Numpad8, Numpad9,
+  NumpadDivide = 83,
+  NumpadMultiply = 84,
+  NumpadMinus = 85,
+  NumpadPlus = 86,
+  NumpadEnter = 87,
+  NumpadDecimal = 88,
+  Numpad0 = 89,
+  Numpad1 = 90,
+  Numpad2 = 91,
+  Numpad3 = 92,
+  Numpad4 = 93,
+  Numpad5 = 94,
+  Numpad6 = 95,
+  Numpad7 = 96,
+  Numpad8 = 97,
+  Numpad9 = 98,
   // Modifiers
-  ShiftLeft = 99, ShiftRight,
-  CtrlLeft, CtrlRight,
-  AltLeft, AltRight,
-  SuperLeft, SuperRight,
-  CapsLock, NumLock,
+  ShiftLeft = 99,
+  ShiftRight = 100,
+  CtrlLeft = 101,
+  CtrlRight = 102,
+  AltLeft = 103,
+  AltRight = 104,
+  SuperLeft = 105,
+  SuperRight = 106,
+  CapsLock = 107,
+  NumLock = 108,
   // Misc
-  Help = 109, Menu, Power, Sleep, Wake,
-  Mute, VolumeDown, VolumeUp,
-  MediaPlayPause, MediaStop, MediaNext, MediaPrevious,
-  BrightnessDown, BrightnessUp, Eject,
+  Help = 109,
+  Menu = 110,
+  Power = 111,
+  Sleep = 112,
+  Wake = 113,
+  Mute = 114,
+  VolumeDown = 115,
+  VolumeUp = 116,
+  MediaPlayPause = 117,
+  MediaStop = 118,
+  MediaNext = 119,
+  MediaPrevious = 120,
+  BrightnessDown = 121,
+  BrightnessUp = 122,
+  Eject = 123,
   // Punctuation (layout-dependent position)
-  Grave = 124, Minus, Equal,
-  LeftBracket, RightBracket, Backslash,
-  Semicolon, Apostrophe, Comma, Period, Slash,
+  Grave = 124,
+  Minus = 125,
+  Equal = 126,
+  LeftBracket = 127,
+  RightBracket = 128,
+  Backslash = 129,
+  Semicolon = 130,
+  Apostrophe = 131,
+  Comma = 132,
+  Period = 133,
+  Slash = 134,
 };
 
 // Active modifier state (bitmask)
 enum class Modifier : uint8_t {
   None = 0,
-  Shift = 1 << 0,
-  Ctrl = 1 << 1,
-  Alt = 1 << 2,
-  Super = 1 << 3,
-  CapsLock = 1 << 4,
-  NumLock = 1 << 5,
+  Shift = 0x01,
+  Ctrl = 0x02,
+  Alt = 0x04,
+  Super = 0x08,
+  CapsLock = 0x10,
+  NumLock = 0x20,
 };
 
-inline Modifier operator|(Modifier a, Modifier b) {
-  return static_cast<Modifier>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+inline Modifier operator|(Modifier first, Modifier second) {
+  return static_cast<Modifier>(static_cast<uint8_t>(first) |
+                               static_cast<uint8_t>(second));
 }
-inline Modifier operator&(Modifier a, Modifier b) {
-  return static_cast<Modifier>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
+inline Modifier operator&(Modifier first, Modifier second) {
+  return static_cast<Modifier>(static_cast<uint8_t>(first) &
+                               static_cast<uint8_t>(second));
 }
 inline bool hasModifier(Modifier state, Modifier flag) {
   return (static_cast<uint8_t>(state) & static_cast<uint8_t>(flag)) != 0;
@@ -68,21 +171,21 @@ inline bool hasModifier(Modifier state, Modifier flag) {
 struct Capabilities {
   bool canInjectKeys{false};
   bool canInjectText{false};
-  bool canSimulateHID{false};       // True hardware-level simulation
-  bool supportsKeyRepeat{false};    // OS handles repeat automatically
+  bool canSimulateHID{false};    // True hardware-level simulation
+  bool supportsKeyRepeat{false}; // OS handles repeat automatically
   bool needsAccessibilityPerm{false};
   bool needsInputMonitoringPerm{false};
-  bool needsUinputAccess{false};    // Linux: /dev/uinput
+  bool needsUinputAccess{false}; // Linux: /dev/uinput
 };
 
 // Backend type detection
-enum class BackendType {
+enum class BackendType : uint8_t {
   Unknown,
   Windows,
   MacOS,
   LinuxX11,
   LinuxWayland,
-  LinuxUInput,  // Direct uinput (works everywhere on Linux)
+  LinuxUInput, // Direct uinput (works everywhere on Linux)
 };
 
 class InputBackend {
@@ -91,10 +194,10 @@ public:
   ~InputBackend();
 
   // Non-copyable, movable
-  InputBackend(const InputBackend&) = delete;
-  InputBackend& operator=(const InputBackend&) = delete;
-  InputBackend(InputBackend&&) noexcept;
-  InputBackend& operator=(InputBackend&&) noexcept;
+  InputBackend(const InputBackend &) = delete;
+  InputBackend &operator=(const InputBackend &) = delete;
+  InputBackend(InputBackend &&) noexcept;
+  InputBackend &operator=(InputBackend &&) noexcept;
 
   // --- Info ---
   [[nodiscard]] BackendType type() const;
@@ -128,8 +231,8 @@ public:
   // --- Text Input ---
   // Injects Unicode text directly (layout-independent).
   // Does NOT trigger physical key events - just inserts characters.
-  bool typeText(const std::u32string& text);
-  bool typeText(const std::string& utf8Text);
+  bool typeText(const std::u32string &text);
+  bool typeText(const std::string &utf8Text);
   bool typeCharacter(char32_t codepoint);
 
   // --- Advanced ---
@@ -146,6 +249,6 @@ private:
 
 // Utility functions
 std::string keyToString(Key key);
-Key stringToKey(const std::string& str);
+Key stringToKey(const std::string &str);
 
 } // namespace backend

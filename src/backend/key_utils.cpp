@@ -22,7 +22,7 @@ std::string toLower(std::string inputString) {
 // Central list of canonical names for keys. These are used as the canonical
 // string returned by `keyToString` and are used to seed the reverse map in
 // `stringToKey`.
-static const std::vector<std::pair<Key, std::string>> &keyStringPairs() {
+const std::vector<std::pair<Key, std::string>> &keyStringPairs() {
   static const std::vector<std::pair<Key, std::string>> pairs = {
       {Key::Unknown, "Unknown"},
       // Letters
@@ -167,19 +167,20 @@ static const std::vector<std::pair<Key, std::string>> &keyStringPairs() {
 } // namespace
 
 std::string keyToString(Key key) {
-  for (const auto &p : keyStringPairs()) {
-    if (p.first == key)
-      return p.second;
+  for (const auto &pair : keyStringPairs()) {
+    if (pair.first == key) {
+      return pair.second;
+    }
   }
-  return std::string("Unknown");
+  return {"Unknown"};
 }
 
 Key stringToKey(const std::string &input) {
   static std::unordered_map<std::string, Key> rev;
   if (rev.empty()) {
-    for (const auto &p : keyStringPairs()) {
+    for (const auto &pair : keyStringPairs()) {
       // Seed canonical mapping (lowercased)
-      rev.emplace(toLower(p.second), p.first);
+      rev.emplace(toLower(pair.second), pair.first);
     }
 
     // Helpful aliases / synonyms
