@@ -175,5 +175,6 @@ int main(int argc, char **argv) {
   ui::makeNonActivating(&toggleWindow);
 
   qDebug() << "[main] Entering event loop";
+  // No-op change to force rebuild for diagnostics
   return app.exec();
 }
